@@ -78,8 +78,8 @@ async def upload_image(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    # Return the URL.
-    return {"url": f"http://localhost:8000/api/uploads/{unique_filename}"}
+    # Return relative URL (works for both dev and production)
+    return {"url": f"/api/uploads/{unique_filename}"}
 
 origins = [
     "http://localhost:5173", # Vite default
