@@ -250,25 +250,29 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db), current
 static_dir = os.path.join(BASE_DIR, "static")
 
 if os.path.exists(static_dir):
-    # 1. Mount assets folder specifically if it exists (Vite projects)
+    # Mount assets folder for JS/CSS/Images
     assets_dir = os.path.join(static_dir, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-    
-    # 2. Serve special static files (favicon, manifest, etc.)
-    # This mounts the root static dir but ignores html=True to not conflict with catch-all
-    app.mount("/static-files", StaticFiles(directory=static_dir), name="static_raw")
 
-# 3. Catch-all route for SPA (React Router) - must be AFTER API and Assets
+# Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
-    # Only serve index.html if it's not an API call
-    if not full_path.startswith("api") and os.path.exists(static_dir):
+    # Skip if it's an API call
+    if full_path.startswith("api"):
+        raise HTTPException(status_code=404, detail="API route not found")
+        
+    # If it looks like a static file but reached here, it's a 404 (don't serve index.html)
+    # This prevents the browser from getting HTML when it expects JS/CSS
+    if "." in full_path and not full_path.endswith(".html"):
+        raise HTTPException(status_code=404)
+
+    # Serve index.html for all other frontend routes
+    if os.path.exists(static_dir):
         from fastapi.responses import FileResponse
         index_path = os.path.join(static_dir, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
-    
-    # If it reached here and starts with api, it truly is a 404
+            
     raise HTTPException(status_code=404, detail="Not Found")
 
