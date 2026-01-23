@@ -1,0 +1,27 @@
+# Node
+node_modules/
+frontend/dist/
+client/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Storage (Database & Uploads)
+# We ignore the files but keep the directories
+storage/*.db
+storage/backups/
+storage/uploads/
+!storage/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db

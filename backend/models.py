@@ -1,0 +1,63 @@
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
+from database import Base
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    date = Column(DateTime, index=True)
+    location = Column(String)
+    organizer = Column(String)
+    description = Column(Text)
+    distances_json = Column(String)  # JSON string of distances list
+    status = Column(String, default="Upcoming") # Upcoming, Past
+    is_highlight = Column(Boolean, default=False)
+    cover_image_url = Column(String, nullable=True)
+    highlight_images_json = Column(Text, default="[]") # JSON list of image URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    assignments = relationship("Assignment", back_populates="event")
+
+class Photographer(Base):
+    __tablename__ = "photographers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    brand = Column(String)
+    bio = Column(Text)
+    logo_url = Column(String, nullable=True)
+    website_url = Column(String, nullable=True)
+    instagram_url = Column(String, nullable=True)
+    facebook_url = Column(String, nullable=True)
+    x_url = Column(String, nullable=True)
+    coverage_areas_json = Column(String, default="[]") # JSON string of areas
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    assignments = relationship("Assignment", back_populates="photographer")
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), index=True)
+    photographer_id = Column(Integer, ForeignKey("photographers.id"), index=True)
+    km_coverage_json = Column(String) # JSON list of KMs covered
+    gallery_url = Column(String)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    event = relationship("Event", back_populates="assignments")
+    photographer = relationship("Photographer", back_populates="assignments")
