@@ -19,7 +19,7 @@ try:
 except Exception as e:
     print(f"Startup backup skipped: {e}")
 
-app = FastAPI(title="LarianHub API", version="0.1.0")
+app = FastAPI(title="MarathonHub API", version="0.1.0")
 
 # Mount 'uploads' directory to serve images
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

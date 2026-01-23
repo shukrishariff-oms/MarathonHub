@@ -88,7 +88,7 @@ export default function Home() {
                             transition={{ delay: 0.2 }}
                             className="text-5xl md:text-7xl lg:text-8xl font-display font-black tracking-tighter leading-none uppercase italic"
                         >
-                            Larian <span className="text-gradient pr-4">Hub</span>
+                            Marathon<span className="text-gradient pr-4">Hub</span>
                         </motion.h1>
 
                         <motion.p
