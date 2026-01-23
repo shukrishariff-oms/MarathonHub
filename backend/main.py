@@ -22,12 +22,16 @@ except Exception as e:
 app = FastAPI(title="LarianHub API", version="0.1.0")
 
 # Mount 'uploads' directory to serve images
-# Use storage directory outside of backend to prevent auto-reload loops during dev
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "..", "storage", "uploads")
+# Look for storage in the same directory as main.py (Docker style)
+UPLOAD_DIR = os.path.join(BASE_DIR, "storage", "uploads")
+
+# Fallback for local dev if storage is one level up
+if not os.path.exists(os.path.join(BASE_DIR, "storage")) and os.path.exists(os.path.join(BASE_DIR, "..", "storage")):
+    UPLOAD_DIR = os.path.join(BASE_DIR, "..", "storage", "uploads")
 
 if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/api/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
@@ -243,7 +247,7 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db), current
 # FRONTEND HOSTING (Production)
 # -----------------------------------------------------------------------------
 # Serve static files from the 'static' directory (compiled React frontend)
-static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
+static_dir = os.path.join(BASE_DIR, "static")
 
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
