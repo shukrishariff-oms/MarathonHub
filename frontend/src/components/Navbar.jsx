@@ -31,8 +31,12 @@ export default function Navbar() {
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-8">
                         <Link to="/" className="flex items-center group">
-                            <div className="bg-primary/20 p-2 rounded-xl group-hover:scale-110 transition-transform duration-300">
-                                <Camera className="h-7 w-7 text-primary" />
+                            <div className="bg-white/5 p-2 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                                <img
+                                    src="/ohmaishoot-logo.png"
+                                    alt="OHMAi SHOOT!"
+                                    className="h-10 w-auto object-contain"
+                                />
                             </div>
                             <div className="flex flex-col ml-3">
                                 <span className="text-2xl font-display font-black text-white tracking-tighter uppercase italic leading-none">
