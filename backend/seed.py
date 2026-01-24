@@ -1,6 +1,6 @@
 from database import SessionLocal, engine
 import models, schemas, crud
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 
 db = SessionLocal()
@@ -17,128 +17,177 @@ def seed():
     else:
         print("Admin user already exists.")
 
-    # 2. Derive data for check (simplification)
-    # existing_events = db.query(models.Event).count()
-    # if existing_events > 0:
-    #     print("Data likely already seeded. Skipping.")
-    #     return
-
-    print("Seeding sample data...")
-
-    # Events
-    # events_data = [ ... ] # Commented out to avoid duplicates
-    # events_objs = []
-    # ...
-
-    # Instead of creating new KLSCM/Penang, let's just create Twincity if it doesn't exist
+    print("Seeding events data...")
     
-    # Twincity Marathon (Past)
-    twincity_event = db.query(models.Event).filter(models.Event.name == "Twincity Marathon 2024").first()
-    if not twincity_event:
-        twincity_event = models.Event(
-            name="Twincity Marathon 2024",
-            date=datetime(2024, 5, 26),
-            location="Cyberjaya",
-            organizer="Ten Senses",
-            description="The race that connects two cities, Cyberjaya and Putrajaya.",
-            distances_json=json.dumps(["Full Marathon", "Half Marathon", "12KM", "5KM"]),
-            status="Past"
-        )
-        db.add(twincity_event)
-        db.commit()
-    
-    # Fetch ActionPix (assumed ID 1 or name "ActionPix")
-    action_pix = db.query(models.Photographer).filter(models.Photographer.name == "ActionPix").first()
-
-    # New Photographers
-    new_photogs = [
+    # All 14 events from production
+    events_data = [
         {
-            "name": "Cikgu Fitness",
-            "brand": "Cikgu Fitness",
-            "bio": "Fitness enthusiast and photographer.",
-            "facebook_url": "https://fb.com/cikgufitness",
-            "coverage_areas_json": json.dumps(["Kuala Lumpur", "Cyberjaya"])
+            "name": "KL Standard Chartered Marathon 2025",
+            "date": datetime(2026, 3, 24),
+            "location": "Dataran Merdeka, KL",
+            "organizer": "Dirigo Events",
+            "description": "The biggest marathon in Malaysia.",
+            "distances_json": json.dumps(["Full Marathon", "Half Marathon", "10KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
         },
         {
-            "name": "Mong Cha Cha",
-            "brand": "Mong Cha Cha",
-            "bio": "Capturing the spirit of running.",
-            "facebook_url": "https://fb.com/mongchachaphotography",
-            "coverage_areas_json": json.dumps(["Nationwide"])
+            "name": "Penang Bridge International Marathon 2025",
+            "date": datetime(2026, 5, 23),
+            "location": "Penang Bridge",
+            "organizer": "Penang Tourism",
+            "description": "Run across the iconic bridge.",
+            "distances_json": json.dumps(["Full Marathon", "Half Marathon", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": True,
         },
         {
-            "name": "RunPix",
-            "brand": "RunPix",
-            "bio": "Professional running photos.",
-            "website_url": "https://runpix.com",
-            "coverage_areas_json": json.dumps(["Klang Valley"])
+            "name": "Putrajaya Night Run 2024",
+            "date": datetime(2025, 12, 24),
+            "location": "Putrajaya",
+            "organizer": "Running Project",
+            "description": "Night run in the federal administrative centre.",
+            "distances_json": json.dumps(["15KM", "10KM", "5KM"]),
+            "status": "Past",
+            "is_highlight": False,
         },
         {
-            "name": "Kakiralensa",
-            "brand": "Kakiralensa",
-            "bio": "Lensa untuk pelari.",
-            "facebook_url": "https://fb.com/kakiralensa",
-            "coverage_areas_json": json.dumps(["Putrajaya", "Cyberjaya"])
-        }
+            "name": "Twincity Marathon 2026",
+            "date": datetime(2026, 1, 16),
+            "location": "Cyberjaya",
+            "organizer": "Ten Senses",
+            "description": "The race that connects two cities, Cyberjaya and Putrajaya.",
+            "distances_json": json.dumps(["Full Marathon","Half Marathon","12KM","5KM"]),
+            "status": "Past",
+            "is_highlight": False,
+        },
+        {
+            "name": "Standard Chartered KL Marathon 2026",
+            "date": datetime(2026, 3, 15),
+            "location": "Kuala Lumpur",
+            "organizer": "Standard Chartered",
+            "description": "Malaysia's premier international marathon featuring 42KM, 21KM, and 10KM categories through the heart of KL.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=1200",
+        },
+        {
+            "name": "Penang Bridge International Marathon 2026",
+            "date": datetime(2026, 11, 23),
+            "location": "Penang",
+            "organizer": "Penang State Government",
+            "description": "Run across the iconic Penang Bridge! Southeast Asia's longest bridge marathon with stunning ocean views.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+        },
+        {
+            "name": "Borneo International Marathon 2026",
+            "date": datetime(2026, 5, 10),
+            "location": "Kota Kinabalu, Sabah",
+            "organizer": "Sabah Tourism Board",
+            "description": "Experience running in one of the world's most beautiful cities with Mount Kinabalu as your backdrop.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": True,
+        },
+        {
+            "name": "Kuching Marathon 2026",
+            "date": datetime(2026, 8, 23),
+            "location": "Kuching, Sarawak",
+            "organizer": "Sarawak Sports Council",
+            "description": "Run through the Cat City! A scenic marathon along the Sarawak River featuring 42KM, 21KM, and 10KM.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=1200",
+        },
+        {
+            "name": "Langkawi International Marathon 2026",
+            "date": datetime(2026, 10, 11),
+            "location": "Langkawi, Kedah",
+            "organizer": "Langkawi Development Authority",
+            "description": "Run in paradise! A tropical island marathon with beach views and UNESCO Geopark scenery.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1200",
+        },
+        {
+            "name": "Putrajaya Night Marathon 2026",
+            "date": datetime(2026, 4, 12),
+            "location": "Putrajaya",
+            "organizer": "Putrajaya Corporation",
+            "description": "Malaysia's premier night run! Experience the beautifully lit federal administrative capital after dark.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+        },
+        {
+            "name": "Malakka River Marathon 2026",
+            "date": datetime(2026, 6, 14),
+            "location": "Melaka",
+            "organizer": "Melaka Sports Council",
+            "description": "Run through UNESCO World Heritage sites! A historic marathon in the culturally rich city of Melaka.",
+            "distances_json": json.dumps(["42KM", "21KM", "10KM"]),
+            "status": "Upcoming",
+            "is_highlight": True,
+            "cover_image_url": "https://images.unsplash.com/photo-1483691278019-cb7253bee49f?w=1200",
+        },
+        {
+            "name": "Ipoh Eco Run 2026",
+            "date": datetime(2026, 7, 19),
+            "location": "Ipoh, Perak",
+            "organizer": "Ipoh City Council",
+            "description": "Experience limestone hills and heritage buildings! A scenic run through Malaysia's foodie capital.",
+            "distances_json": json.dumps(["21KM", "10KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1472224371017-08207f84aaae?w=1200",
+        },
+        {
+            "name": "Cyberjaya Tech Run 2026",
+            "date": datetime(2026, 9, 20),
+            "location": "Cyberjaya, Selangor",
+            "organizer": "Cyberview Sdn Bhd",
+            "description": "Malaysia's tech city marathon featuring smart runner tracking and digital race experience.",
+            "distances_json": json.dumps(["21KM", "10KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1486218119243-13883505764c?w=1200",
+        },
+        {
+            "name": "Sandakan Trail Run 2026",
+            "date": datetime(2026, 12, 6),
+            "location": "Sandakan, Sabah",
+            "organizer": "Sabah Trail Runners",
+            "description": "Adventure through rainforest trails! A challenging trail marathon in Borneo's wildlife capital.",
+            "distances_json": json.dumps(["21KM", "12KM", "5KM"]),
+            "status": "Upcoming",
+            "is_highlight": False,
+            "cover_image_url": "https://images.unsplash.com/photo-1551632811-561732d1e306?w=1200",
+        },
     ]
 
-    new_photog_objs = []
-    for p_data in new_photogs:
-        # Check if exists
-        p = db.query(models.Photographer).filter(models.Photographer.name == p_data["name"]).first()
-        if not p:
-            photog = models.Photographer(**p_data)
-            db.add(photog)
-            db.commit() # Commit to get ID
-            new_photog_objs.append(photog)
+    # Create events (SAFE - checks if exists first)
+    created_count = 0
+    skipped_count = 0
+    
+    for event_data in events_data:
+        existing = db.query(models.Event).filter(models.Event.name == event_data["name"]).first()
+        
+        if not existing:
+            event = models.Event(**event_data)
+            db.add(event)
+            created_count += 1
+            print(f"✓ Created: {event_data['name']}")
         else:
-            new_photog_objs.append(p)
-
-    # Twincity Assignments
-    # We need to be careful not to double add assignments if they exist.
-    # Simple check: count coverage for this event?
-    existing_assignments = db.query(models.Assignment).filter(models.Assignment.event_id == twincity_event.id).count()
+            skipped_count += 1
+            print(f"- Skipped (exists): {event_data['name']}")
     
-    if existing_assignments == 0:
-        db.add(models.Assignment(
-            event_id=twincity_event.id,
-            photographer_id=new_photog_objs[0].id, # Cikgu
-            km_coverage_json=json.dumps(["KM30", "Bomba Hill"]),
-            gallery_url="https://cikgufitness.example/twincity2024"
-        ))
-        db.add(models.Assignment(
-            event_id=twincity_event.id,
-            photographer_id=new_photog_objs[1].id, # Mong
-            km_coverage_json=json.dumps(["Start Line", "KM10"]),
-            gallery_url="https://mongchacha.example/twincity2024"
-        ))
-        db.add(models.Assignment(
-            event_id=twincity_event.id,
-            photographer_id=new_photog_objs[2].id, # RunPix
-            km_coverage_json=json.dumps(["Finish Line"]),
-            gallery_url="https://runpix.example/twincity2024"
-        ))
-        db.add(models.Assignment(
-            event_id=twincity_event.id,
-            photographer_id=new_photog_objs[3].id, # Kakira
-            km_coverage_json=json.dumps(["Dataran Gemilang"]),
-            gallery_url="https://kakiralensa.example/twincity2024"
-        ))
-        if action_pix:
-            db.add(models.Assignment(
-                event_id=twincity_event.id,
-                photographer_id=action_pix.id, 
-                km_coverage_json=json.dumps(["KM42"]),
-                gallery_url="https://actionpix.example/twincity2024"
-            ))
-
     db.commit()
-    print("Seed complete.")
-    return # Exit after new seed
-    
-    # Original code commented out below...
-
-    db.commit()
+    print(f"\nSummary: {created_count} events created, {skipped_count} events skipped (already exist)")
     print("Seed complete.")
 
 if __name__ == "__main__":
