@@ -254,13 +254,6 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db), current
         raise HTTPException(status_code=404, detail="Assignment not found")
     return db_assignment
 
-@app.patch("/api/admin/assignments/{assignment_id}/toggle-pin", response_model=schemas.Assignment)
-def toggle_pin_assignment(assignment_id: int, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
-    db_assignment = crud.toggle_assignment_pin(db, assignment_id)
-    if db_assignment is None:
-        raise HTTPException(status_code=404, detail="Assignment not found")
-    return db_assignment
-
 # --- Debug Endpoint ---
 @app.get("/api/debug-db")
 def debug_db(db: Session = Depends(get_db)):

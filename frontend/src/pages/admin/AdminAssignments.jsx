@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, Trash, ExternalLink, ArrowLeft, Star } from 'lucide-react';
+import { Plus, Trash, ExternalLink, ArrowLeft } from 'lucide-react';
 import api from '../../api';
 
 export default function AdminAssignments() {
@@ -25,12 +25,7 @@ export default function AdminAssignments() {
                     api.get('/photographers?limit=1000') // get all for dropdown
                 ]);
                 setEvent(eventRes.data);
-                // Sort assignments: Pinned first, then by ID (or whatever default)
-                const sortedAssignments = (eventRes.data.assignments || []).sort((a, b) => {
-                    if (a.is_pinned === b.is_pinned) return 0;
-                    return a.is_pinned ? -1 : 1;
-                });
-                setAssignments(sortedAssignments);
+                setAssignments(eventRes.data.assignments || []);
                 setPhotographers(photogRes.data);
                 setLoading(false);
             } catch (error) {
@@ -47,6 +42,10 @@ export default function AdminAssignments() {
 
         const kmList = newKmCoverage.split(',').map(s => s.trim()).filter(Boolean);
 
+        // Check if photographer already assigned?
+        // Backend allows multiples? Schema doesn't enforce uniqueness on (event, photographer) pair but maybe UI should warn.
+        // For now allow it.
+
         const payload = {
             event_id: parseInt(eventId),
             photographer_id: parseInt(newPhotographerId),
@@ -57,6 +56,13 @@ export default function AdminAssignments() {
 
         try {
             const res = await api.post('/admin/assignments', payload);
+            // Refresh assignments list.
+            // The list returned in 'event' might need refetching, or we just append
+            // But the response `res` is just the assignment object.
+            // It DOES NOT have the nested `photographer` object fully populated depending on the return schema.
+            // My schemas.Assignment response DOES NOT have nested photographer.
+            // So I need to find the photographer object from my list and merge it for display, or reload the page.
+            // Reload is easier.
             window.location.reload();
         } catch (error) {
             console.error("Failed to add assignment", error);
@@ -73,27 +79,6 @@ export default function AdminAssignments() {
                 console.error(error);
                 alert("Failed to remove assignment");
             }
-        }
-    };
-
-    const handleTogglePin = async (assignmentId) => {
-        try {
-            const res = await api.patch(`/admin/assignments/${assignmentId}/toggle-pin`);
-            // Update local state
-            const updatedAssignments = assignments.map(a =>
-                a.id === assignmentId ? { ...a, is_pinned: res.data.is_pinned } : a
-            );
-
-            // Re-sort
-            updatedAssignments.sort((a, b) => {
-                if (a.is_pinned === b.is_pinned) return 0;
-                return a.is_pinned ? -1 : 1;
-            });
-
-            setAssignments(updatedAssignments);
-        } catch (error) {
-            console.error("Failed to toggle pin", error);
-            alert("Failed to toggle pin");
         }
     };
 
@@ -125,15 +110,12 @@ export default function AdminAssignments() {
                                 const pLogo = assign.photographer ? assign.photographer.logo_url : null;
 
                                 return (
-                                    <li key={assign.id} className={`p-4 flex justify-between items-start transition-colors ${assign.is_pinned ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-white/5'}`}>
+                                    <li key={assign.id} className="p-4 flex justify-between items-start hover:bg-white/5 transition-colors">
                                         <div className="flex items-start space-x-3">
                                             {pLogo ? <img src={pLogo} className="h-10 w-10 rounded-full border border-white/10 object-cover" alt="" /> : <div className="h-10 w-10 bg-white/10 rounded-full border border-white/10" />}
 
                                             <div>
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="text-sm font-bold text-white">{pName}</h3>
-                                                    {assign.is_pinned && <Star className="w-3 h-3 text-primary fill-primary" />}
-                                                </div>
+                                                <h3 className="text-sm font-bold text-white">{pName}</h3>
                                                 <a href={assign.gallery_url} target="_blank" className="text-xs text-primary hover:underline flex items-center mt-1">
                                                     {assign.gallery_url} <ExternalLink className="h-3 w-3 ml-1" />
                                                 </a>
@@ -147,18 +129,9 @@ export default function AdminAssignments() {
                                                 {assign.note && <p className="text-xs text-slate-500 mt-1 italic">{assign.note}</p>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => handleTogglePin(assign.id)}
-                                                className={`p-2 rounded-lg transition-colors ${assign.is_pinned ? 'text-primary hover:text-primary/80 bg-primary/10' : 'text-slate-500 hover:text-primary hover:bg-primary/10'}`}
-                                                title={assign.is_pinned ? "Unpin photographer" : "Pin to top"}
-                                            >
-                                                <Star className={`h-4 w-4 ${assign.is_pinned ? 'fill-primary' : ''}`} />
-                                            </button>
-                                            <button onClick={() => handleDelete(assign.id)} className="text-red-400 hover:text-red-300 p-2 hover:bg-red-400/10 rounded-lg transition-colors">
-                                                <Trash className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                        <button onClick={() => handleDelete(assign.id)} className="text-red-400 hover:text-red-300 p-2 hover:bg-red-400/10 rounded-lg transition-colors">
+                                            <Trash className="h-4 w-4" />
+                                        </button>
                                     </li>
                                 );
                             })}

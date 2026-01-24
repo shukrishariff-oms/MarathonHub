@@ -16,12 +16,7 @@ export default function EventDetail() {
             .then(res => {
                 setEvent(res.data);
                 if (res.data.assignments) {
-                    // Sort assignments: Pinned first
-                    const sortedAssignments = res.data.assignments.sort((a, b) => {
-                        if (a.is_pinned === b.is_pinned) return 0;
-                        return a.is_pinned ? -1 : 1;
-                    });
-                    setAssignments(sortedAssignments);
+                    setAssignments(res.data.assignments);
                 }
                 setLoading(false);
             })

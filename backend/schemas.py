@@ -21,7 +21,6 @@ class AssignmentBase(BaseModel):
     km_coverage_json: str
     gallery_url: str
     note: Optional[str] = None
-    is_pinned: Optional[bool] = False
 
 class AssignmentCreate(AssignmentBase):
     pass
@@ -134,7 +133,6 @@ class AssignmentPublic(BaseModel):
     km_coverage_json: str
     gallery_url: str
     note: Optional[str] = None
-    is_pinned: bool = False
     photographer: Photographer # Nested photographer info
 
     class Config:
