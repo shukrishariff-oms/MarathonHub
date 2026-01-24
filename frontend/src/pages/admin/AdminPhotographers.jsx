@@ -6,6 +6,7 @@ import api from '../../api';
 export default function AdminPhotographers() {
     const [photographers, setPhotographers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchPhotographers();
@@ -36,6 +37,10 @@ export default function AdminPhotographers() {
         }
     };
 
+    const filteredPhotographers = photographers.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4">
@@ -48,13 +53,26 @@ export default function AdminPhotographers() {
                 </Link>
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-white">Manage Photographers</h1>
-                    <Link
-                        to="/admin/photographers/new"
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-xl shadow-sm text-sm font-bold text-ohmai-charcoal bg-primary hover:bg-primary/90 transition-all"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Photographer
-                    </Link>
+                    <div className="flex items-center gap-4">
+                        <div className="relative w-64 bg-red-900/20 border border-red-500 rounded-xl">
+                            <span className="text-red-500 text-xs absolute -top-4 left-0">DEBUG_SEARCH</span>
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white z-10" />
+                            <input
+                                type="text"
+                                placeholder="Search photographers..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 pr-4 py-2 bg-red-500/20 border border-red-500 rounded-xl text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all w-full"
+                            />
+                        </div>
+                        <Link
+                            to="/admin/photographers/new"
+                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-xl shadow-sm text-sm font-bold text-ohmai-charcoal bg-primary hover:bg-primary/90 transition-all"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Photographer
+                        </Link>
+                    </div>
                 </div>
             </div>
 
@@ -63,7 +81,7 @@ export default function AdminPhotographers() {
             ) : (
                 <div className="bg-white/5 shadow-xl overflow-hidden rounded-2xl border border-white/10">
                     <ul className="divide-y divide-white/10">
-                        {photographers.map((p) => (
+                        {filteredPhotographers.map((p) => (
                             <li key={p.id} className="p-4 hover:bg-white/5 transition-colors flex justify-between items-center">
                                 <div className="flex items-center">
                                     {p.logo_url ? (

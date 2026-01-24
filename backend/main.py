@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas, crud, auth, database
@@ -264,6 +265,14 @@ if os.path.exists(static_dir):
     assets_dir = os.path.join(static_dir, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    
+    # Serve logo image specifically (since it's at root of static dir)
+    @app.get("/ohmaishoot-logo.png")
+    async def serve_logo():
+        logo_path = os.path.join(static_dir, "ohmaishoot-logo.png")
+        if os.path.exists(logo_path):
+            return FileResponse(logo_path)
+        raise HTTPException(status_code=404, detail="Logo not found")
 
 # Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
