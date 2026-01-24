@@ -247,6 +247,8 @@ def update_assignment(assignment_id: int, assignment: schemas.AssignmentUpdate, 
         raise HTTPException(status_code=404, detail="Assignment not found")
     return db_assignment
 
+@app.delete("/api/admin/assignments/{assignment_id}", response_model=schemas.Assignment)
+def delete_assignment(assignment_id: int, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
     db_assignment = crud.delete_assignment(db, assignment_id)
     if db_assignment is None:
         raise HTTPException(status_code=404, detail="Assignment not found")
