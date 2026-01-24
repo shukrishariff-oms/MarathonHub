@@ -28,7 +28,7 @@ class Event(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    assignments = relationship("Assignment", back_populates="event")
+    assignments = relationship("Assignment", back_populates="event", cascade="all, delete-orphan")
     
     @property
     def computed_status(self):
