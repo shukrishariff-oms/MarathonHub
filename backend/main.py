@@ -282,6 +282,14 @@ if os.path.exists(static_dir):
         if os.path.exists(logo_path):
             return FileResponse(logo_path)
         raise HTTPException(status_code=404, detail="Logo not found")
+    
+    # Serve OG image for social media previews
+    @app.get("/og-image.jpg")
+    async def serve_og_image():
+        og_image_path = os.path.join(static_dir, "og-image.jpg")
+        if os.path.exists(og_image_path):
+            return FileResponse(og_image_path)
+        raise HTTPException(status_code=404, detail="OG image not found")
 
 # Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
