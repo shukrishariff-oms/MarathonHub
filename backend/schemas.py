@@ -33,7 +33,7 @@ class Assignment(AssignmentBase):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Photographer Schemas
 class PhotographerBase(BaseModel):
@@ -60,7 +60,7 @@ class Photographer(PhotographerBase):
     assignments: List[Assignment] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Event Schemas
 class EventBase(BaseModel):
@@ -88,7 +88,7 @@ class Event(EventBase):
     assignments: List[Assignment] = [] # This might need a simpler schema to avoid recursion if we nest deeply
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @classmethod
     def from_orm(cls, obj):
@@ -116,14 +116,14 @@ class AssignmentWithPhotographer(Assignment):
     photographer: Photographer
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # For listing assignments with event details
 class AssignmentWithEvent(Assignment):
     event: Event
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Update Event to use specific assignment schema if needed, 
 # but for now standard Assignment is okay as it just has ids.
@@ -136,13 +136,13 @@ class AssignmentPublic(BaseModel):
     photographer: Photographer # Nested photographer info
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class EventPublic(Event):
     assignments: List[AssignmentPublic] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @classmethod
     def from_orm(cls, obj):
