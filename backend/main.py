@@ -124,8 +124,7 @@ def read_events(
     # Extending crud logic slightly here for simplicity if needed
     query = db.query(models.Event)
     
-    if status and status != 'All':
-        query = query.filter(models.Event.status == status)
+    # Don't filter by status in the query - we'll do it after computing status
     
     if search:
         query = query.filter(models.Event.name.contains(search))
@@ -141,7 +140,19 @@ def read_events(
     if is_highlight is not None:
         query = query.filter(models.Event.is_highlight == is_highlight)
 
-    return query.order_by(models.Event.date.asc()).offset(skip).limit(limit).all()
+    # Get all events matching other filters
+    all_events = query.order_by(models.Event.date.asc()).all()
+    
+    # Filter by computed status
+    if status and status != 'All':
+        filtered_events = [event for event in all_events if event.computed_status == status]
+    else:
+        filtered_events = all_events
+    
+    # Apply pagination
+    paginated_events = filtered_events[skip:skip + limit] if limit else filtered_events[skip:]
+    
+    return paginated_events
 
 @app.get("/api/events/{event_id}", response_model=schemas.EventPublic) # utilizing EventPublic to include assignments
 def read_event(event_id: int, db: Session = Depends(get_db)):

@@ -89,6 +89,27 @@ class Event(EventBase):
 
     class Config:
         orm_mode = True
+        
+    @classmethod
+    def from_orm(cls, obj):
+        # Override to use computed_status
+        data = {
+            'id': obj.id,
+            'name': obj.name,
+            'date': obj.date,
+            'location': obj.location,
+            'organizer': obj.organizer,
+            'description': obj.description,
+            'distances_json': obj.distances_json,
+            'status': obj.computed_status,  # Use computed status instead of db status
+            'is_highlight': obj.is_highlight,
+            'cover_image_url': obj.cover_image_url,
+            'highlight_images_json': obj.highlight_images_json,
+            'created_at': obj.created_at,
+            'updated_at': obj.updated_at,
+            'assignments': obj.assignments
+        }
+        return cls(**data)
 
 # For listing assignments with photographer details
 class AssignmentWithPhotographer(Assignment):
@@ -122,3 +143,24 @@ class EventPublic(Event):
     
     class Config:
         orm_mode = True
+        
+    @classmethod
+    def from_orm(cls, obj):
+        # Override to use computed_status
+        data = {
+            'id': obj.id,
+            'name': obj.name,
+            'date': obj.date,
+            'location': obj.location,
+            'organizer': obj.organizer,
+            'description': obj.description,
+            'distances_json': obj.distances_json,
+            'status': obj.computed_status,  # Use computed status instead of db status
+            'is_highlight': obj.is_highlight,
+            'cover_image_url': obj.cover_image_url,
+            'highlight_images_json': obj.highlight_images_json,
+            'created_at': obj.created_at,
+            'updated_at': obj.updated_at,
+            'assignments': obj.assignments
+        }
+        return cls(**data)

@@ -29,6 +29,23 @@ class Event(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     assignments = relationship("Assignment", back_populates="event")
+    
+    @property
+    def computed_status(self):
+        """Dynamically compute event status based on date"""
+        if not self.date:
+            return self.status
+        
+        # Get today's date at midnight for comparison (use UTC or local timezone as needed)
+        today = datetime.utcnow().date()
+        event_date = self.date.date() if isinstance(self.date, datetime) else self.date
+        
+        if event_date > today:
+            return "Upcoming"
+        elif event_date == today:
+            return "Recent"
+        else:  # event_date < today
+            return "Past"
 
 class Photographer(Base):
     __tablename__ = "photographers"
