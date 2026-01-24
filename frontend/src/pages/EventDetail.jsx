@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User } from 'lucide-react';
+import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 
@@ -9,6 +9,7 @@ export default function EventDetail() {
     const [event, setEvent] = useState(null);
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         api.get(`/events/${id}`)
@@ -42,6 +43,14 @@ export default function EventDetail() {
 
     const formattedDate = new Date(event.date).toLocaleDateString(undefined, {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    // Filter photographers by search query
+    const filteredAssignments = assignments.filter(assignment => {
+        const photographerName = assignment.photographer?.name || '';
+        const photographerBrand = assignment.photographer?.brand || '';
+        return photographerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            photographerBrand.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
     return (
@@ -133,15 +142,36 @@ export default function EventDetail() {
 
             {/* Photographers Section */}
             <section className="space-y-10">
-                <div className="flex items-end justify-between">
+                <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
                     <div className="space-y-2">
                         <h2 className="text-3xl font-display font-black text-white tracking-tighter italic uppercase">Race Media</h2>
                         <p className="text-slate-400 font-medium font-display">Experience the fire through the lens.</p>
                     </div>
+
+                    {/* Search Bar */}
+                    {assignments.length > 0 && (
+                        <div className="relative w-full md:w-80">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search photographers..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-12 pr-6 py-3 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 text-white placeholder-slate-400 font-medium focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {assignments.map((assignment, idx) => {
+                    {searchQuery && filteredAssignments.length === 0 && (
+                        <div className="col-span-full py-16 text-center glass-card bg-slate-50/50 border-dashed">
+                            <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-display font-bold text-slate-700 mb-2">No photographers found</h3>
+                            <p className="text-slate-500 font-medium">Try different search terms or clear the search.</p>
+                        </div>
+                    )}
+                    {filteredAssignments.map((assignment, idx) => {
                         const kmList = JSON.parse(assignment.km_coverage_json || '[]');
                         const photographer = assignment.photographer;
 
