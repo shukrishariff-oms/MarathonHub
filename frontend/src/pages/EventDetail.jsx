@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search } from 'lucide-react';
+import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 
@@ -92,6 +92,46 @@ export default function EventDetail() {
                                 <MapPin className="w-5 h-5 text-primary" />
                                 <span className="font-bold text-slate-100">{event.location}</span>
                             </div>
+                        </div>
+
+                        {/* Share Buttons */}
+                        <div className="pt-6 flex flex-wrap gap-3">
+                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <Share2 className="w-4 h-4" />
+                                Share Event:
+                            </span>
+                            <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Check out ${event.name} on ${formattedDate} at ${event.location}! https://marathonhub.ohmaishoot.com/events/${event.id}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/20 transition-all font-bold text-xs flex items-center gap-2"
+                            >
+                                WhatsApp
+                            </a>
+                            <a
+                                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.id}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] hover:bg-[#1877F2]/20 transition-all font-bold text-xs"
+                            >
+                                Facebook
+                            </a>
+                            <a
+                                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.id}`)}&text=${encodeURIComponent(`${event.name} - ${formattedDate}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-[#1DA1F2] hover:bg-[#1DA1F2]/20 transition-all font-bold text-xs"
+                            >
+                                Twitter
+                            </a>
+                            <a
+                                href={`https://t.me/share/url?url=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.id}`)}&text=${encodeURIComponent(`${event.name} - ${formattedDate}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl bg-[#0088CC]/10 border border-[#0088CC]/20 text-[#0088CC] hover:bg-[#0088CC]/20 transition-all font-bold text-xs"
+                            >
+                                Telegram
+                            </a>
                         </div>
                     </div>
 
