@@ -36,16 +36,26 @@ class Event(Base):
         if not self.date:
             return self.status
         
-        # Get today's date at midnight for comparison (use UTC or local timezone as needed)
-        today = datetime.utcnow().date()
-        event_date = self.date.date() if isinstance(self.date, datetime) else self.date
-        
-        if event_date > today:
-            return "Upcoming"
-        elif event_date == today:
-            return "Recent"
-        else:  # event_date < today
-            return "Past"
+        try:
+            # Get today's date at midnight for comparison
+            today = datetime.utcnow().date()
+            
+            # Safely convert to date
+            if isinstance(self.date, datetime):
+                event_date = self.date.date()
+            else:
+                event_date = self.date
+            
+            if event_date > today:
+                return "Upcoming"
+            elif event_date == today:
+                return "Recent"
+            else:  # event_date < today
+                return "Past"
+        except Exception as e:
+            # If any error, just return the stored status
+            print(f"Error computing status for event {self.name}: {e}")
+            return self.status
 
 class Photographer(Base):
     __tablename__ = "photographers"
