@@ -113,15 +113,14 @@ def get_db():
 def read_events(
     skip: int = 0, 
     limit: int = 100, 
-    status: Optional[str] = "Upcoming",
+    status: Optional[str] = None,  # Changed default from "Upcoming" to None
     search: Optional[str] = None,
-    month: Optional[str] = None, # Not fully implemented in CRUD yet but API allows it
+    month: Optional[str] = None,
     location: Optional[str] = None,
     is_highlight: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     # Basic filtering handling here or inside crud
-    # Extending crud logic slightly here for simplicity if needed
     query = db.query(models.Event)
     
     # Don't filter by status in the query - we'll do it after computing status
@@ -143,7 +142,7 @@ def read_events(
     # Get all events matching other filters
     all_events = query.order_by(models.Event.date.asc()).all()
     
-    # Filter by computed status
+    # Filter by computed status only if status parameter is provided
     if status and status != 'All':
         filtered_events = [event for event in all_events if event.computed_status == status]
     else:
