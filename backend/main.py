@@ -20,6 +20,23 @@ try:
 except Exception as e:
     print(f"Startup backup skipped: {e}")
 
+def check_and_migrate_db():
+    try:
+        from sqlalchemy import text
+        with database.engine.connect() as conn:
+            # Check if is_pinned column exists
+            result = conn.execute(text("PRAGMA table_info(assignments)"))
+            columns = [row[1] for row in result]
+            if "is_pinned" not in columns:
+                print("Migrating database: Adding is_pinned column...")
+                conn.execute(text("ALTER TABLE assignments ADD COLUMN is_pinned BOOLEAN DEFAULT 0 NOT NULL"))
+                conn.commit()
+                print("Migration successful.")
+    except Exception as e:
+        print(f"Migration check failed: {e}")
+
+check_and_migrate_db()
+
 app = FastAPI(title="MarathonHub API", version="0.1.0")
 
 # Mount 'uploads' directory to serve images
@@ -250,6 +267,13 @@ def update_assignment(assignment_id: int, assignment: schemas.AssignmentUpdate, 
 @app.delete("/api/admin/assignments/{assignment_id}", response_model=schemas.Assignment)
 def delete_assignment(assignment_id: int, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
     db_assignment = crud.delete_assignment(db, assignment_id)
+    if db_assignment is None:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    return db_assignment
+
+@app.patch("/api/admin/assignments/{assignment_id}/toggle-pin", response_model=schemas.Assignment)
+def toggle_pin_assignment(assignment_id: int, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
+    db_assignment = crud.toggle_assignment_pin(db, assignment_id)
     if db_assignment is None:
         raise HTTPException(status_code=404, detail="Assignment not found")
     return db_assignment
