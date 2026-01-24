@@ -1,13 +1,13 @@
 from database import SessionLocal
 from models import Assignment, Event
+from sqlalchemy import extract
 
 db = SessionLocal()
 
 # Find Twincity 2026
 event = db.query(Event).filter(
-    Event.name.contains('Twincity')
-).filter(
-    Event.date.astype(str).startswith('2026')
+    Event.name.contains('Twincity'),
+    extract('year', Event.date) == 2026
 ).first()
 
 if event:
