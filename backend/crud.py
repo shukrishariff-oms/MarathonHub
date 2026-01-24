@@ -135,3 +135,11 @@ def delete_assignment(db: Session, assignment_id: int):
 
 def get_assignments_by_event(db: Session, event_id: int):
     return db.query(models.Assignment).filter(models.Assignment.event_id == event_id).all()
+
+def toggle_assignment_pin(db: Session, assignment_id: int):
+    db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
+    if db_assignment:
+        db_assignment.is_pinned = not db_assignment.is_pinned
+        db.commit()
+        db.refresh(db_assignment)
+    return db_assignment

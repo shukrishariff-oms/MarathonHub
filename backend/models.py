@@ -84,6 +84,7 @@ class Assignment(Base):
     km_coverage_json = Column(String) # JSON list of KMs covered
     gallery_url = Column(String)
     note = Column(String, nullable=True)
+    is_pinned = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     event = relationship("Event", back_populates="assignments")
