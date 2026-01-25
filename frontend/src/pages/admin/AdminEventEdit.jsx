@@ -36,7 +36,11 @@ export default function AdminEventEdit() {
                     setFormData({
                         ...data,
                         date: data.date ? (() => {
-                            const d = new Date(data.date);
+                            // Ensure UTC interpretation
+                            const dateStr = data.date.endsWith('Z') ? data.date : data.date + 'Z';
+                            const d = new Date(dateStr);
+                            // Shift by timezone offset to get "Local Wall Time" in UTC components
+                            // So that toISOString() outputs the local time string
                             const localIso = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
                             return localIso;
                         })() : ''
