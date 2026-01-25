@@ -46,7 +46,7 @@ export default function EventDetail() {
         </div>
     );
 
-    const formattedDate = new Date(event.date).toLocaleDateString(undefined, {
+    const formattedDate = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 

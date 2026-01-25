@@ -47,7 +47,7 @@ export default function EventList() {
         const grouped = {};
 
         events.forEach(event => {
-            const date = new Date(event.date);
+            const date = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z');
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 

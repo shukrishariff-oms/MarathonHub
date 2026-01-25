@@ -3,8 +3,8 @@ import { Calendar, MapPin, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function EventCard({ event }) {
-    const formattedDate = new Date(event.date).toLocaleDateString(undefined, {
-        day: '2-digit', month: 'short', year: 'numeric'
+    const formattedDate = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
     return (

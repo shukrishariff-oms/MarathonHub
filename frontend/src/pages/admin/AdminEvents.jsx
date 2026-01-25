@@ -109,7 +109,7 @@ export default function AdminEvents() {
                                     <h3 className="text-lg font-bold text-white">{event.name}</h3>
                                     <div className="flex items-center space-x-4 text-sm text-slate-400 mt-1">
                                         <div className="flex items-center gap-1">
-                                            <span>{new Date(event.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            <span>{new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                         </div>
                                         <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-full ${event.status === 'Upcoming' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white/10 text-slate-400 border border-white/10'}`}>
                                             {event.status}
