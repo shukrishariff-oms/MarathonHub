@@ -13,6 +13,7 @@ import AdminPhotographers from './pages/admin/AdminPhotographers';
 import AdminPhotographerEdit from './pages/admin/AdminPhotographerEdit';
 import AdminAssignments from './pages/admin/AdminAssignments';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
+import AdminEventAnalytics from './pages/admin/AdminEventAnalytics';
 import AdminSettings from './pages/admin/AdminSettings';
 
 // Protected Route Wrapper
@@ -69,6 +70,7 @@ function App() {
             <Route path="/admin/photographers/edit/:id" element={<ProtectedRoute><AdminLayout><AdminPhotographerEdit /></AdminLayout></ProtectedRoute>} />
 
             <Route path="/admin/analytics" element={<ProtectedRoute><AdminLayout><AdminAnalytics /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/analytics/event/:eventId" element={<ProtectedRoute><AdminLayout><AdminEventAnalytics /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
 
         </Routes>
