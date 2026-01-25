@@ -143,3 +143,82 @@ def toggle_assignment_pin(db: Session, assignment_id: int):
         db.commit()
         db.refresh(db_assignment)
     return db_assignment
+
+def create_page_view(db: Session, view: schemas.PageViewCreate, ip_hash: str, user_agent: str):
+    db_view = models.PageView(
+        path=view.path,
+        entity_type=view.entity_type,
+        entity_id=view.entity_id,
+        ip_hash=ip_hash,
+        user_agent=user_agent
+    )
+    db.add(db_view)
+    db.commit()
+    db.refresh(db_view)
+    return db_view
+
+def get_analytics_summary(db: Session):
+    from sqlalchemy import func, desc
+    from datetime import datetime, timedelta
+
+    # Total Views
+    total_views = db.query(models.PageView).count()
+
+    # Daily Visits (Last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    # SQLite grouping by date using strftime
+    daily_stats = db.query(
+        func.strftime('%Y-%m-%d', models.PageView.timestamp).label('date'),
+        func.count(models.PageView.id).label('count')
+    ).filter(
+        models.PageView.timestamp >= thirty_days_ago
+    ).group_by(
+        'date'
+    ).order_by(
+        'date'
+    ).all()
+    
+    daily_visits = [{"date": row.date, "count": row.count} for row in daily_stats]
+
+    # Popular Events
+    # Join with Event to get names
+    event_stats = db.query(
+        models.PageView.entity_id,
+        models.Event.name,
+        func.count(models.PageView.id).label('views')
+    ).join(
+        models.Event, models.Event.id == models.PageView.entity_id
+    ).filter(
+        models.PageView.entity_type == 'event'
+    ).group_by(
+        models.PageView.entity_id
+    ).order_by(
+        desc('views')
+    ).limit(5).all()
+
+    popular_events = [{"id": r.entity_id, "name": r.name, "views": r.views} for r in event_stats]
+
+    # Popular Photographers
+    photog_stats = db.query(
+        models.PageView.entity_id,
+        models.Photographer.name,
+        func.count(models.PageView.id).label('views')
+    ).join(
+        models.Photographer, models.Photographer.id == models.PageView.entity_id
+    ).filter(
+        models.PageView.entity_type == 'photographer'
+    ).group_by(
+        models.PageView.entity_id
+    ).order_by(
+        desc('views')
+    ).limit(5).all()
+
+    popular_photographers = [{"id": r.entity_id, "name": r.name, "views": r.views} for r in photog_stats]
+
+    return {
+        "daily_visits": daily_visits,
+        "popular_events": popular_events,
+        "popular_photographers": popular_photographers,
+        "total_views": total_views
+    }

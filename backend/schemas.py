@@ -166,3 +166,15 @@ class EventPublic(Event):
             'assignments': obj.assignments
         }
         return cls(**data)
+
+# Analytics Schemas
+class PageViewCreate(BaseModel):
+    path: str
+    entity_type: str
+    entity_id: Optional[int] = None
+
+class AnalyticsSummary(BaseModel):
+    daily_visits: List[dict] # {date: str, count: int}
+    popular_events: List[dict] # {id, name, views}
+    popular_photographers: List[dict] # {id, name, views}
+    total_views: int

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -278,16 +278,38 @@ def toggle_pin_assignment(assignment_id: int, db: Session = Depends(get_db), cur
         raise HTTPException(status_code=404, detail="Assignment not found")
     return db_assignment
 
+# --- Analytics Endpoints ---
+
+@app.post("/api/track", status_code=status.HTTP_201_CREATED)
+def track_page_view(
+    view: schemas.PageViewCreate, 
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    # Anonymize IP
+    import hashlib
+    ip = request.client.host or "unknown"
+    user_agent = request.headers.get('user-agent', '')
+    ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
+    
+    crud.create_page_view(db, view, ip_hash, user_agent)
+    return {"status": "ok"}
+
+@app.get("/api/admin/analytics", response_model=schemas.AnalyticsSummary)
+def get_analytics(
+    db: Session = Depends(get_db),
+    current_user: models.Admin = Depends(auth.get_current_user)
+):
+    return crud.get_analytics_summary(db)
+
 # --- Debug Endpoint ---
 @app.get("/api/debug-db")
 def debug_db(db: Session = Depends(get_db)):
-    count = db.query(models.Event).count()
-    return {
-        "db_path": database.DB_URL_PATH,
-        "event_count": count,
-        "cwd": os.getcwd(),
-        "exists": os.path.exists(database.DB_URL_PATH)
-    }
+    try:
+        events = db.query(models.Event).all()
+        return {"event_count": len(events), "events": [{"id": e.id, "name": e.name, "date": e.date} for e in events]}
+    except Exception as e:
+        return {"error": str(e)}
 
 # -----------------------------------------------------------------------------
 # FRONTEND HOSTING (Production)

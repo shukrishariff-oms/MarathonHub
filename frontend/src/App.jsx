@@ -40,7 +40,10 @@ const AdminLayout = ({ children }) => (
     </div>
 );
 
+import usePageTracking from './hooks/usePageTracking';
+
 function App() {
+    usePageTracking();
     return (
         <Routes>
             <Route path="/" element={<Layout />}>

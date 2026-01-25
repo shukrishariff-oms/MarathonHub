@@ -89,3 +89,14 @@ class Assignment(Base):
 
     event = relationship("Event", back_populates="assignments")
     photographer = relationship("Photographer", back_populates="assignments")
+
+class PageView(Base):
+    __tablename__ = "page_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String, index=True)
+    entity_type = Column(String, index=True) # 'home', 'event', 'photographer', 'other'
+    entity_id = Column(Integer, nullable=True, index=True)
+    ip_hash = Column(String, nullable=True) # Anonymized IP
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    user_agent = Column(String, nullable=True)
