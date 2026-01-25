@@ -234,7 +234,8 @@ def get_event_photographer_analytics(db: Session, event_id: int):
         func.strftime('%Y-%m-%d %H:00', models.PageView.timestamp).label('hour'),
         func.count(models.PageView.id).label('count')
     ).filter(
-        models.PageView.event_id == event_id
+        models.PageView.event_id == event_id,
+        models.PageView.entity_type == 'event'
     ).group_by(
         'hour'
     ).order_by(
