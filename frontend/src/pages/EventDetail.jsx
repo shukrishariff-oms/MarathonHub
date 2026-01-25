@@ -273,7 +273,8 @@ export default function EventDetail() {
                                         api.post('/track', {
                                             path: assignment.gallery_url,
                                             entity_type: 'photographer',
-                                            entity_id: photographer.id
+                                            entity_id: photographer.id,
+                                            event_id: event.id
                                         }).catch(console.error);
                                     }}
                                     className="p-5 bg-primary text-ohmai-charcoal flex justify-center items-center gap-3 font-black group-hover:scale-[1.02] transition-transform uppercase italic"
