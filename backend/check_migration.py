@@ -4,9 +4,16 @@ import os
 try:
     # Handle DB path
     db_path = "storage/larianhub.db"
+    abs_path = os.path.abspath(db_path)
+    print(f"Checking DB at: {abs_path}")
     
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+    
+    # Check tables
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
+    print(f"Existing tables: {tables}")
     
     # Check page_views columns
     cursor.execute("PRAGMA table_info(page_views)")
