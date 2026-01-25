@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Upload, X } from 'lucide-react';
 import api from '../../api';
 
 export default function AdminPhotographerEdit() {
@@ -63,6 +63,29 @@ export default function AdminPhotographerEdit() {
         }
     };
 
+    const [uploading, setUploading] = useState(false);
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        const uploadData = new FormData();
+        uploadData.append('file', file);
+
+        try {
+            const res = await api.post('/upload', uploadData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setFormData(prev => ({ ...prev, logo_url: res.data.url }));
+        } catch (err) {
+            console.error("Upload failed", err);
+            alert("Failed to upload image");
+        } finally {
+            setUploading(false);
+        }
+    };
+
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <Link
@@ -92,10 +115,58 @@ export default function AdminPhotographerEdit() {
                         <label className="block text-sm font-bold text-slate-300">Website URL</label>
                         <input type="url" name="website_url" value={formData.website_url || ''} onChange={handleChange} className="mt-1 block w-full bg-black/20 border-white/10 rounded-xl text-white shadow-sm focus:ring-primary focus:border-primary sm:text-sm border p-3" />
                     </div>
+
+                    {/* Image Upload Field */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-300">Logo Image URL</label>
-                        <input type="text" name="logo_url" value={formData.logo_url || ''} onChange={handleChange} className="mt-1 block w-full bg-black/20 border-white/10 rounded-xl text-white shadow-sm focus:ring-primary focus:border-primary sm:text-sm border p-3" />
+                        <label className="block text-sm font-bold text-slate-300 mb-2">Logo Image</label>
+                        <div className="flex items-start gap-4">
+                            {formData.logo_url && (
+                                <div className="relative group shrink-0">
+                                    <img
+                                        src={formData.logo_url}
+                                        alt="Logo Preview"
+                                        className="w-20 h-20 object-contain bg-white/5 rounded-lg border border-white/10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, logo_url: '' }))}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex-1">
+                                <label className="cursor-pointer flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-white/10 rounded-xl hover:border-primary/50 hover:bg-white/5 transition-all group">
+                                    {uploading ? (
+                                        <div className="w-5 h-5 border-2 border-white/20 border-t-primary rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Upload className="w-5 h-5 text-slate-400 group-hover:text-primary mb-1" />
+                                            <span className="text-[10px] text-slate-400 group-hover:text-white font-medium uppercase tracking-wide">Click to upload</span>
+                                        </>
+                                    )}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleImageUpload}
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                <input
+                                    type="text"
+                                    name="logo_url"
+                                    value={formData.logo_url || ''}
+                                    onChange={handleChange}
+                                    placeholder="Or paste URL..."
+                                    className="mt-2 block w-full bg-black/20 border-white/10 rounded-xl text-white text-xs p-2 placeholder-slate-600 focus:ring-primary focus:border-primary border"
+                                />
+                            </div>
+                        </div>
                     </div>
+
                     <div>
                         <label className="block text-sm font-bold text-slate-300">Instagram URL</label>
                         <input type="url" name="instagram_url" value={formData.instagram_url || ''} onChange={handleChange} className="mt-1 block w-full bg-black/20 border-white/10 rounded-xl text-white shadow-sm focus:ring-primary focus:border-primary sm:text-sm border p-3" />
