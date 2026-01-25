@@ -114,21 +114,25 @@ export default function AdminAnalytics() {
                     </h2>
                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         {stats.popular_events.map((event, idx) => (
-                            <div key={event.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                            <Link
+                                key={event.id}
+                                to={`/admin/analytics/event/${event.id}`}
+                                className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer border border-transparent hover:border-primary/20 transition-all group"
+                            >
                                 <div className="flex items-center gap-4">
                                     <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${idx < 3 ? 'bg-primary text-black' : 'bg-white/10 text-slate-400'}`}>
                                         {idx + 1}
                                     </span>
                                     <div>
-                                        <p className="font-medium text-white line-clamp-1">{event.name}</p>
-                                        <Link to={`/events/${event.id}`} target="_blank" className="text-xs text-primary hover:underline">View Page</Link>
+                                        <p className="font-medium text-white line-clamp-1 group-hover:text-primary transition-colors">{event.name}</p>
+                                        <span className="text-xs text-slate-500">Click to view details</span>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="font-bold text-white">{event.views}</p>
                                     <p className="text-xs text-slate-500">views</p>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                         {stats.popular_events.length === 0 && <p className="text-slate-500 text-center py-4">No data yet.</p>}
                     </div>
