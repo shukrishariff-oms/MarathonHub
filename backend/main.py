@@ -22,11 +22,20 @@ except Exception as e:
 
 def check_and_migrate_db():
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect
         with database.engine.connect() as conn:
-            # Check if is_pinned column exists
-            result = conn.execute(text("PRAGMA table_info(assignments)"))
-            columns = [row[1] for row in result]
+            # 1. Check for missing tables (like page_views)
+            inspector = inspect(database.engine)
+            existing_tables = inspector.get_table_names()
+            
+            if "page_views" not in existing_tables:
+                print("Migrating database: Creating page_views table...")
+                models.Base.metadata.create_all(bind=database.engine)
+                print("Table creation successful.")
+
+            # 2. Check for missing columns (is_pinned)
+            # Use inspector instead of PRAGMA for better portability
+            columns = [c['name'] for c in inspector.get_columns("assignments")]
             if "is_pinned" not in columns:
                 print("Migrating database: Adding is_pinned column...")
                 conn.execute(text("ALTER TABLE assignments ADD COLUMN is_pinned BOOLEAN DEFAULT 0 NOT NULL"))
