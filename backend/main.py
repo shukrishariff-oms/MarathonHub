@@ -33,14 +33,26 @@ def check_and_migrate_db():
                 models.Base.metadata.create_all(bind=database.engine)
                 print("Table creation successful.")
 
-            # 2. Check for missing columns (is_pinned)
+            # 2. Check for missing columns (is_pinned, event_id)
             # Use inspector instead of PRAGMA for better portability
-            columns = [c['name'] for c in inspector.get_columns("assignments")]
-            if "is_pinned" not in columns:
+            
+            # Assignments table
+            assign_cols = [c['name'] for c in inspector.get_columns("assignments")]
+            if "is_pinned" not in assign_cols:
                 print("Migrating database: Adding is_pinned column...")
                 conn.execute(text("ALTER TABLE assignments ADD COLUMN is_pinned BOOLEAN DEFAULT 0 NOT NULL"))
                 conn.commit()
-                print("Migration successful.")
+
+            # PageViews table (migration for event_id)
+            if "page_views" in existing_tables:
+                pv_cols = [c['name'] for c in inspector.get_columns("page_views")]
+                if "event_id" not in pv_cols:
+                    print("Migrating database: Adding event_id column to page_views...")
+                    conn.execute(text("ALTER TABLE page_views ADD COLUMN event_id INTEGER NULL"))
+                    conn.execute(text("CREATE INDEX ix_page_views_event_id ON page_views (event_id)"))
+                    conn.commit()
+                    print("Migration successful.")
+                    
     except Exception as e:
         print(f"Migration check failed: {e}")
 
@@ -317,6 +329,14 @@ def get_analytics_raw(
     current_user: models.Admin = Depends(auth.get_current_user)
 ):
     return crud.get_recent_views(db)
+
+@app.get("/api/admin/analytics/event/{event_id}")
+def get_event_analytics(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Admin = Depends(auth.get_current_user)
+):
+    return crud.get_event_photographer_analytics(db, event_id)
 
 # --- Debug Endpoint ---
 @app.get("/api/debug-db")

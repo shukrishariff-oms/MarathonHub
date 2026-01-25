@@ -149,6 +149,7 @@ def create_page_view(db: Session, view: schemas.PageViewCreate, ip_hash: str, us
         path=view.path,
         entity_type=view.entity_type,
         entity_id=view.entity_id,
+        event_id=view.event_id,
         ip_hash=ip_hash,
         user_agent=user_agent
     )
@@ -221,3 +222,24 @@ def get_analytics_summary(db: Session):
 def get_recent_views(db: Session, limit: int = 50):
     from sqlalchemy import desc
     return db.query(models.PageView).order_by(desc(models.PageView.timestamp)).limit(limit).all()
+
+def get_event_photographer_analytics(db: Session, event_id: int):
+    from sqlalchemy import func, desc
+    # Find photographers who got views (entity_type='photographer') associated with this event_id
+    stats = db.query(
+        models.Photographer.id,
+        models.Photographer.name,
+        models.Photographer.brand,
+        models.Photographer.logo_url,
+        func.count(models.PageView.id).label('views')
+    ).join(
+        models.PageView, (models.Photographer.id == models.PageView.entity_id) & (models.PageView.entity_type == 'photographer')
+    ).filter(
+        models.PageView.event_id == event_id
+    ).group_by(
+        models.Photographer.id
+    ).order_by(
+        desc('views')
+    ).all()
+    
+    return [{"id": s.id, "name": s.name, "brand": s.brand, "logo_url": s.logo_url, "views": s.views} for s in stats]

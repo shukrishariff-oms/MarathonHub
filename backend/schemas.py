@@ -172,6 +172,7 @@ class PageViewCreate(BaseModel):
     path: str
     entity_type: str
     entity_id: Optional[int] = None
+    event_id: Optional[int] = None
 
 class AnalyticsSummary(BaseModel):
     daily_visits: List[dict] # {date: str, count: int}

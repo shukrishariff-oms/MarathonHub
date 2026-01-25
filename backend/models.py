@@ -97,6 +97,7 @@ class PageView(Base):
     path = Column(String, index=True)
     entity_type = Column(String, index=True) # 'home', 'event', 'photographer', 'other'
     entity_id = Column(Integer, nullable=True, index=True)
+    event_id = Column(Integer, nullable=True, index=True) # Context: Which event was this associated with?
     ip_hash = Column(String, nullable=True) # Anonymized IP
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     user_agent = Column(String, nullable=True)
