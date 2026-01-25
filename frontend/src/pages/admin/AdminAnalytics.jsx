@@ -37,7 +37,7 @@ export default function AdminAnalytics() {
     if (error || !stats) return (
         <div className="text-center py-32 glass-card border-red-500/20">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <LayoutDashboard className="w-8 h-8 text-red-500" />
+                <Activity className="w-8 h-8 text-red-500" />
             </div>
             <h3 className="text-xl font-display font-bold text-white mb-2">System Update in Progress</h3>
             <p className="text-slate-400 font-medium max-w-md mx-auto mb-6">{error || "Data is currently unavailable."}</p>
