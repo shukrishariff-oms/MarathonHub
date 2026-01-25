@@ -100,7 +100,7 @@ export default function EventList() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="glass-card p-2 md:p-3 flex flex-col md:flex-row gap-3 items-center sticky top-24 z-40"
+                className="glass-card p-2 md:p-3 flex flex-col md:flex-row gap-3 items-center sticky top-24 z-40 !bg-[#0B0F1A]/90 !backdrop-blur-xl border-white/10"
             >
                 <div className="relative flex-grow w-full">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
