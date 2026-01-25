@@ -6,14 +6,18 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export default function AdminAnalytics() {
     const [stats, setStats] = useState(null);
+    const [rawLogs, setRawLogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('/admin/analytics')
-            .then(res => {
-                setStats(res.data);
-                setLoading(false);
-            })
+        Promise.all([
+            api.get('/admin/analytics'),
+            api.get('/admin/analytics/raw')
+        ]).then(([resStats, resRaw]) => {
+            setStats(resStats.data);
+            setRawLogs(resRaw.data);
+            setLoading(false);
+        })
             .catch(err => {
                 console.error(err);
                 setLoading(false);
@@ -139,5 +143,43 @@ export default function AdminAnalytics() {
                 </div>
             </div>
         </div>
+
+            {/* Raw Logs for Debugging */ }
+    <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
+        <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-slate-400" />
+            System Raw Logs (Debug)
+        </h2>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-400">
+                <thead className="text-xs uppercase bg-white/5 text-slate-200">
+                    <tr>
+                        <th className="px-4 py-3 rounded-tl-lg">Time</th>
+                        <th className="px-4 py-3">Path</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3 rounded-tr-lg">ID</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                    {rawLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                            <td className="px-4 py-3">{new Date(log.timestamp).toLocaleString()}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-primary">{log.path}</td>
+                            <td className="px-4 py-3">
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.entity_type === 'event' ? 'bg-blue-500/20 text-blue-400' :
+                                        log.entity_type === 'photographer' ? 'bg-purple-500/20 text-purple-400' :
+                                            'bg-slate-700 text-slate-400'
+                                    }`}>
+                                    {log.entity_type}
+                                </span>
+                            </td>
+                            <td className="px-4 py-3">{log.entity_id || '-'}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+        </div >
     );
 }

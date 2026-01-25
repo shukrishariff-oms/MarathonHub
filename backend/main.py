@@ -311,6 +311,13 @@ def get_analytics(
 ):
     return crud.get_analytics_summary(db)
 
+@app.get("/api/admin/analytics/raw")
+def get_analytics_raw(
+    db: Session = Depends(get_db),
+    current_user: models.Admin = Depends(auth.get_current_user)
+):
+    return crud.get_recent_views(db)
+
 # --- Debug Endpoint ---
 @app.get("/api/debug-db")
 def debug_db(db: Session = Depends(get_db)):

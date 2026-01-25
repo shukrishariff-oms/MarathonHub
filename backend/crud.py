@@ -217,3 +217,7 @@ def get_analytics_summary(db: Session):
         "popular_photographers": popular_photographers,
         "total_views": total_views
     }
+
+def get_recent_views(db: Session, limit: int = 50):
+    from sqlalchemy import desc
+    return db.query(models.PageView).order_by(desc(models.PageView.timestamp)).limit(limit).all()
