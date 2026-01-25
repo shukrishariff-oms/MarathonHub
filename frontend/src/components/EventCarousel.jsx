@@ -133,7 +133,7 @@ export default function EventCarousel({ events = [] }) {
 
                             {/* Event Date */}
                             <p className="text-lg md:text-xl text-slate-200 font-medium">
-                                {new Date(currentEvent.date).toLocaleDateString(undefined, {
+                                {new Date(currentEvent.date.endsWith('Z') ? currentEvent.date : currentEvent.date + 'Z').toLocaleDateString(undefined, {
                                     weekday: 'long',
                                     year: 'numeric',
                                     month: 'long',
