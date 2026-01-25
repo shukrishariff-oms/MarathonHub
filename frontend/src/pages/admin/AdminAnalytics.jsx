@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, BarChart, Activity, Users, Camera, Calendar } from 'lucide-react';
+import { ArrowLeft, BarChart, Activity, Users, Camera, Calendar, LayoutDashboard } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar } from 'recharts';
 
 export default function AdminAnalytics() {
+    const [stats, setStats] = useState(null);
     const [rawLogs, setRawLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showDebug, setShowDebug] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         Promise.all([
@@ -19,13 +21,31 @@ export default function AdminAnalytics() {
             setLoading(false);
         })
             .catch(err => {
-                console.error(err);
+                console.error("Analytics load error:", err);
+                setError("Failed to load analytics data. Service may be updating.");
                 setLoading(false);
             });
     }, []);
 
-    if (loading) return <div className="text-white p-8">Loading analytics...</div>;
-    if (!stats) return <div className="text-white p-8">Failed to load data</div>;
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center py-32 space-y-4">
+            <div className="w-12 h-12 border-4 border-white/5 border-t-primary rounded-full animate-spin" />
+            <p className="text-slate-400 font-bold tracking-wide uppercase italic">Crunching numbers...</p>
+        </div>
+    );
+
+    if (error || !stats) return (
+        <div className="text-center py-32 glass-card border-red-500/20">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <LayoutDashboard className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-display font-bold text-white mb-2">System Update in Progress</h3>
+            <p className="text-slate-400 font-medium max-w-md mx-auto mb-6">{error || "Data is currently unavailable."}</p>
+            <button onClick={() => window.location.reload()} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white font-bold transition-colors">
+                Retry Connection
+            </button>
+        </div>
+    );
 
     return (
         <div className="space-y-8">
