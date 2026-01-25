@@ -145,8 +145,8 @@ export default function AdminAssignments() {
                                                     <h3 className="text-sm font-bold text-white">{pName}</h3>
                                                     {assign.is_pinned && <Star className="w-3 h-3 text-primary fill-primary" />}
                                                 </div>
-                                                <a href={assign.gallery_url} target="_blank" className="text-xs text-primary hover:underline flex items-center mt-1">
-                                                    {assign.gallery_url} <ExternalLink className="h-3 w-3 ml-1" />
+                                                <a href={assign.gallery_url} target="_blank" className="text-xs text-primary hover:underline flex items-center mt-1 break-all gap-1">
+                                                    {assign.gallery_url} <ExternalLink className="h-3 w-3 shrink-0" />
                                                 </a>
                                                 <div className="mt-2 flex flex-wrap gap-1">
                                                     {JSON.parse(assign.km_coverage_json || '[]').map((km, idx) => (
