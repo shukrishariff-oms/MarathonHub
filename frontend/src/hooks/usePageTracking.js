@@ -12,32 +12,16 @@ export default function usePageTracking() {
 
         if (path === '/') {
             entity_type = 'home';
-        } else if (path.startsWith('/events/') && path.split('/').length === 3) {
-            // /events/:id or /events (list)
-            // wait, /events is list. /events/123 is detail
-            const parts = path.split('/');
-            const id = parseInt(parts[2]);
-            if (!isNaN(id)) {
-                entity_type = 'event';
-                entity_id = id;
-            } else if (parts.length === 2 && parts[1] === 'events') {
-                // /events
-                entity_type = 'event_list';
-            }
-        } else if (path.startsWith('/photographers')) {
-            const parts = path.split('/').filter(p => p); // Remove empty strings: ['', 'photographers', '1'] -> ['photographers', '1']
-            if (parts.length >= 2 && parts[0] === 'photographers') {
-                const id = parseInt(parts[1]);
-                if (!isNaN(id)) {
-                    entity_type = 'photographer';
-                    entity_id = id;
-                } else {
-                    // /photographers (list)
-                    entity_type = 'photographer_list';
-                }
-            } else {
-                entity_type = 'photographer_list';
-            }
+        } else if (path.match(/^\/events\/\d+/)) {
+            entity_type = 'event';
+            entity_id = parseInt(path.split('/')[2]);
+        } else if (path.match(/^\/events(\/)?$/)) {
+            entity_type = 'event_list';
+        } else if (path.match(/^\/photographers\/\d+/)) {
+            entity_type = 'photographer';
+            entity_id = parseInt(path.split('/')[2]);
+        } else if (path.match(/^\/photographers(\/)?$/)) {
+            entity_type = 'photographer_list';
         }
 
         // Don't track admin pages or login
