@@ -225,6 +225,24 @@ def get_recent_views(db: Session, limit: int = 50):
 
 def get_event_photographer_analytics(db: Session, event_id: int):
     from sqlalchemy import func, desc
+    from datetime import datetime, timedelta
+
+    # Hourly Visits (Last 7 days to keep it relevant/readable, or just all time?)
+    # Let's do All Time for the event since events are short-lived usually.
+    # SQLite formatting for YYYY-MM-DD HH:00
+    hourly_stats = db.query(
+        func.strftime('%Y-%m-%d %H:00', models.PageView.timestamp).label('hour'),
+        func.count(models.PageView.id).label('count')
+    ).filter(
+        models.PageView.event_id == event_id
+    ).group_by(
+        'hour'
+    ).order_by(
+        'hour'
+    ).all()
+
+    hourly_visits = [{"date": row.hour, "count": row.count} for row in hourly_stats]
+
     # Find photographers who got views (entity_type='photographer') associated with this event_id
     stats = db.query(
         models.Photographer.id,
@@ -242,4 +260,9 @@ def get_event_photographer_analytics(db: Session, event_id: int):
         desc('views')
     ).all()
     
-    return [{"id": s.id, "name": s.name, "brand": s.brand, "logo_url": s.logo_url, "views": s.views} for s in stats]
+    photographers = [{"id": s.id, "name": s.name, "brand": s.brand, "logo_url": s.logo_url, "views": s.views} for s in stats]
+
+    return {
+        "hourly_visits": hourly_visits,
+        "photographers": photographers
+    }
