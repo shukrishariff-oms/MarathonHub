@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Camera, LayoutDashboard, Calendar } from 'lucide-react';
+import { ArrowLeft, Camera, LayoutDashboard, Calendar, Activity } from 'lucide-react';
 import api from '../../api';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function AdminEventAnalytics() {
     const { eventId } = useParams();
-    const [stats, setStats] = useState([]);
+    const [data, setData] = useState({ hourly_visits: [], photographers: [] });
     const [loading, setLoading] = useState(true);
-    const [event, setEvent] = useState(null); // To store event name if needed, or fetch it separately
+    const [event, setEvent] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch event details (for name) and analytics parallel
                 const [analyticsRes, eventRes] = await Promise.all([
                     api.get(`/admin/analytics/event/${eventId}`),
                     api.get(`/events/${eventId}`)
                 ]);
-                setStats(analyticsRes.data);
+                setData(analyticsRes.data);
                 setEvent(eventRes.data);
                 setLoading(false);
             } catch (err) {
@@ -53,6 +53,43 @@ export default function AdminEventAnalytics() {
                 </div>
             </div>
 
+            {/* Hourly Traffic Chart */}
+            <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
+                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Hourly Traffic (Activity by Hour)
+                </h2>
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data.hourly_visits}>
+                            <defs>
+                                <linearGradient id="colorHourly" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                            <XAxis
+                                dataKey="date"
+                                stroke="#94a3b8"
+                                tickFormatter={(str) => {
+                                    const d = new Date(str);
+                                    return `${d.getHours()}:00`;
+                                }}
+                                style={{ fontSize: 12 }}
+                            />
+                            <YAxis stroke="#94a3b8" style={{ fontSize: 12 }} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
+                                itemStyle={{ color: '#8b5cf6' }}
+                                labelFormatter={(str) => new Date(str).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            />
+                            <Area type="monotone" dataKey="count" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorHourly)" strokeWidth={3} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
             <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
                 <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                     <Camera className="w-5 h-5 text-primary" />
@@ -60,8 +97,8 @@ export default function AdminEventAnalytics() {
                 </h2>
 
                 <div className="space-y-4">
-                    {stats.length > 0 ? (
-                        stats.map((photog, idx) => (
+                    {data.photographers.length > 0 ? (
+                        data.photographers.map((photog, idx) => (
                             <div key={photog.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                                 <div className="flex items-center gap-4">
                                     <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-lg ${idx < 3 ? 'bg-primary text-black' : 'bg-white/5 text-slate-500'}`}>
