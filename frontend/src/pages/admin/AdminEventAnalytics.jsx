@@ -55,10 +55,18 @@ export default function AdminEventAnalytics() {
 
             {/* Hourly Traffic Chart */}
             <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
-                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" />
-                    Hourly Traffic (Activity by Hour)
-                </h2>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary" />
+                        Hourly Traffic (Activity by Hour)
+                    </h2>
+                    <div className="text-right">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Views</p>
+                        <p className="text-2xl font-black text-white">
+                            {data.hourly_visits.reduce((acc, curr) => acc + curr.count, 0).toLocaleString()}
+                        </p>
+                    </div>
+                </div>
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data.hourly_visits}>
