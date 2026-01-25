@@ -161,6 +161,23 @@ export default function PhotographerDetail() {
                                         href={assignment.gallery_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        onClick={() => {
+                                            api.post('/track', {
+                                                path: assignment.gallery_url,
+                                                entity_type: 'event', // Tracking event interest from photographer profile? Or still photographer?
+                                                // Actually, if they are on photographer profile and go to gallery, it's still engagement for photographer.
+                                                // But let's track as 'other' or maybe 'photographer_gallery_click'?
+                                                // To keep it simple and showing in 'Top Photographers', we use 'photographer'.
+                                                // Wait, if I use entity_type 'photographer' and entity_id 'photographer.id', it counts as a view.
+                                                // Here we are listing assignments. The user is ALREADY on the photographer profile (so 1 view counted).
+                                                // If they click a gallery, should it count as ANOTHER view?
+                                                // User says "dia akan kita photographer yang dah di assign".
+                                                // Let's count it as 'photographer' view for now to boost stats.
+                                                path: assignment.gallery_url,
+                                                entity_type: 'photographer',
+                                                entity_id: photographer.id
+                                            }).catch(console.error);
+                                        }}
                                         className="p-5 bg-primary text-ohmai-charcoal flex justify-center items-center gap-3 font-black group-hover:scale-[1.02] transition-transform uppercase italic"
                                     >
                                         Browse Photos

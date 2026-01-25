@@ -269,6 +269,13 @@ export default function EventDetail() {
                                     href={assignment.gallery_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={() => {
+                                        api.post('/track', {
+                                            path: assignment.gallery_url,
+                                            entity_type: 'photographer',
+                                            entity_id: photographer.id
+                                        }).catch(console.error);
+                                    }}
                                     className="p-5 bg-primary text-ohmai-charcoal flex justify-center items-center gap-3 font-black group-hover:scale-[1.02] transition-transform uppercase italic"
                                 >
                                     Get Your Photos
