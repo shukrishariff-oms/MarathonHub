@@ -82,17 +82,17 @@ export default function AdminAnalytics() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Popular Events */}
+                {/* All Events */}
                 <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
                     <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-primary" />
-                        Top Trending Events
+                        All Events Traffic
                     </h2>
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         {stats.popular_events.map((event, idx) => (
                             <div key={event.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                                 <div className="flex items-center gap-4">
-                                    <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${idx === 0 ? 'bg-primary text-black' : 'bg-white/10 text-slate-400'}`}>
+                                    <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${idx < 3 ? 'bg-primary text-black' : 'bg-white/10 text-slate-400'}`}>
                                         {idx + 1}
                                     </span>
                                     <div>
@@ -110,17 +110,17 @@ export default function AdminAnalytics() {
                     </div>
                 </div>
 
-                {/* Popular Photographers */}
+                {/* All Photographers */}
                 <div className="bg-white/5 border border-white/10 shadow-xl rounded-2xl p-6">
                     <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                         <Camera className="w-5 h-5 text-primary" />
-                        Top Photographers
+                        All Photographers Traffic
                     </h2>
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         {stats.popular_photographers.map((photog, idx) => (
                             <div key={photog.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                                 <div className="flex items-center gap-4">
-                                    <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${idx === 0 ? 'bg-primary text-black' : 'bg-white/10 text-slate-400'}`}>
+                                    <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${idx < 3 ? 'bg-primary text-black' : 'bg-white/10 text-slate-400'}`}>
                                         {idx + 1}
                                     </span>
                                     <div>

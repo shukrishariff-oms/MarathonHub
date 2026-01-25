@@ -181,40 +181,35 @@ def get_analytics_summary(db: Session):
     
     daily_visits = [{"date": row.date, "count": row.count} for row in daily_stats]
 
-    # Popular Events
-    # Join with Event to get names
+    # All Events (with views, including 0)
     event_stats = db.query(
-        models.PageView.entity_id,
+        models.Event.id,
         models.Event.name,
         func.count(models.PageView.id).label('views')
-    ).join(
-        models.Event, models.Event.id == models.PageView.entity_id
-    ).filter(
-        models.PageView.entity_type == 'event'
+    ).outerjoin(
+        models.PageView, (models.Event.id == models.PageView.entity_id) & (models.PageView.entity_type == 'event')
     ).group_by(
-        models.PageView.entity_id
+        models.Event.id
     ).order_by(
         desc('views')
-    ).limit(5).all()
+    ).all()
 
-    popular_events = [{"id": r.entity_id, "name": r.name, "views": r.views} for r in event_stats]
+    popular_events = [{"id": r.id, "name": r.name, "views": r.views} for r in event_stats]
 
-    # Popular Photographers
+    # All Photographers (with views, including 0)
     photog_stats = db.query(
-        models.PageView.entity_id,
+        models.Photographer.id,
         models.Photographer.name,
         func.count(models.PageView.id).label('views')
-    ).join(
-        models.Photographer, models.Photographer.id == models.PageView.entity_id
-    ).filter(
-        models.PageView.entity_type == 'photographer'
+    ).outerjoin(
+        models.PageView, (models.Photographer.id == models.PageView.entity_id) & (models.PageView.entity_type == 'photographer')
     ).group_by(
-        models.PageView.entity_id
+        models.Photographer.id
     ).order_by(
         desc('views')
-    ).limit(5).all()
+    ).all()
 
-    popular_photographers = [{"id": r.entity_id, "name": r.name, "views": r.views} for r in photog_stats]
+    popular_photographers = [{"id": r.id, "name": r.name, "views": r.views} for r in photog_stats]
 
     return {
         "daily_visits": daily_visits,
