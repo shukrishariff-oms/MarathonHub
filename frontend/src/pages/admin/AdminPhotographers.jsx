@@ -13,10 +13,9 @@ export default function AdminPhotographers() {
     }, []);
 
     const fetchPhotographers = () => {
-        api.get('/photographers?limit=100')
+        api.get('/photographers?limit=100&include_hidden=true')
             .then(res => {
-                const sortedData = res.data.sort((a, b) => a.name.localeCompare(b.name));
-                setPhotographers(sortedData);
+                setPhotographers(res.data);
                 setLoading(false);
             })
             .catch(err => {
@@ -81,30 +80,38 @@ export default function AdminPhotographers() {
                 <div className="bg-white/5 shadow-xl overflow-hidden rounded-2xl border border-white/10">
                     <ul className="divide-y divide-white/10">
                         {filteredPhotographers.map((p) => (
-                            <li key={p.id} className="p-4 hover:bg-white/5 transition-colors flex justify-between items-center">
-                                <div className="flex items-center">
+                            <li key={p.id} className="p-4 hover:bg-white/5 transition-colors flex justify-between items-center gap-4">
+                                <div className="flex items-center flex-grow">
+                                    <div className="w-8 shrink-0 text-slate-500 font-mono text-center outline outline-1 outline-white/10 rounded mr-4 bg-black/20 text-sm">
+                                        #{p.display_order}
+                                    </div>
                                     {p.logo_url ? (
-                                        <img src={p.logo_url} alt="" className="h-10 w-10 rounded-full mr-4 object-cover border border-white/10" />
+                                        <img src={p.logo_url} alt="" className="h-10 w-10 rounded-full mr-4 object-cover border border-white/10 shrink-0" />
                                     ) : (
-                                        <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white font-bold mr-4 border border-white/10">
+                                        <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white font-bold mr-4 border border-white/10 shrink-0">
                                             {p.name.charAt(0)}
                                         </div>
                                     )}
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">{p.name}</h3>
-                                        {p.brand && <p className="text-sm text-slate-400">{p.brand}</p>}
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-bold text-white truncate">{p.name}</h3>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${p.is_public ? 'bg-green-500/20 text-green-400 border border-green-500/20' : 'bg-red-500/20 text-red-400 border border-red-500/20'}`}>
+                                                {p.is_public ? 'Public' : 'Hidden'}
+                                            </span>
+                                            {p.brand && <span className="text-sm text-slate-400 truncate">{p.brand}</span>}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+                                <div className="flex items-center gap-2 px-2 shrink-0">
                                     <Link
                                         to={`/admin/photographers/edit/${p.id}`}
-                                        className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                        className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors border border-transparent hover:border-white/10"
                                     >
                                         <Edit className="h-4 w-4" />
                                     </Link>
                                     <button
                                         onClick={() => handleDelete(p.id)}
-                                        className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors"
+                                        className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors border border-transparent hover:border-red-400/20"
                                     >
                                         <Trash className="h-4 w-4" />
                                     </button>

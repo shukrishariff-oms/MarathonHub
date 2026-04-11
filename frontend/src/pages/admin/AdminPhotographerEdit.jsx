@@ -17,7 +17,9 @@ export default function AdminPhotographerEdit() {
         instagram_url: '',
         facebook_url: '',
         x_url: '',
-        coverage_areas_json: '[]'
+        coverage_areas_json: '[]',
+        is_public: true,
+        display_order: 0
     });
     const [coverageInput, setCoverageInput] = useState('');
 
@@ -98,6 +100,22 @@ export default function AdminPhotographerEdit() {
             <h1 className="text-2xl font-bold text-white">{isEditing ? 'Edit Photographer' : 'Add Photographer'}</h1>
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-white/5 p-6 rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm">
+                
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 p-4 bg-black/20 border border-white/5 rounded-xl">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-300">Show on Public Page</label>
+                            <p className="text-xs text-slate-500">Toggle to hide or show on main list</p>
+                        </div>
+                        <input type="checkbox" name="is_public" checked={formData.is_public} onChange={(e) => setFormData(prev => ({ ...prev, is_public: e.target.checked }))} className="w-6 h-6 text-primary bg-black/20 border-white/10 rounded focus:ring-primary" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-300">Display Order</label>
+                        <p className="text-xs text-slate-500 mb-1">Lower numbers appear first (0 is default)</p>
+                        <input type="number" name="display_order" value={formData.display_order} onChange={handleChange} className="block w-full bg-black/20 border-white/10 rounded-lg text-white shadow-sm focus:ring-primary focus:border-primary sm:text-sm border p-2" />
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                         <label className="block text-sm font-bold text-slate-300">Name</label>

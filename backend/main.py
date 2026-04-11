@@ -200,8 +200,8 @@ def read_event(event_id: int, db: Session = Depends(get_db)):
     return db_event
 
 @app.get("/api/photographers", response_model=List[schemas.Photographer])
-def read_photographers(skip: int = 0, limit: int = 100, search: Optional[str] = None, db: Session = Depends(get_db)):
-    return crud.get_photographers(db, skip=skip, limit=limit, search=search)
+def read_photographers(skip: int = 0, limit: int = 100, search: Optional[str] = None, include_hidden: bool = False, db: Session = Depends(get_db)):
+    return crud.get_photographers(db, skip=skip, limit=limit, search=search, include_hidden=include_hidden)
 
 @app.get("/api/photographers/{photographer_id}", response_model=schemas.Photographer)
 def read_photographer(photographer_id: int, db: Session = Depends(get_db)):

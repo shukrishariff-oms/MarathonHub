@@ -70,6 +70,8 @@ class Photographer(Base):
     facebook_url = Column(String, nullable=True)
     x_url = Column(String, nullable=True)
     coverage_areas_json = Column(String, default="[]") # JSON string of areas
+    is_public = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

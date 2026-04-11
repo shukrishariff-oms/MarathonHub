@@ -77,11 +77,13 @@ def delete_event(db: Session, event_id: int):
     return db_event
 
 # Photographers
-def get_photographers(db: Session, skip: int = 0, limit: int = 100, search: str = None):
+def get_photographers(db: Session, skip: int = 0, limit: int = 100, search: str = None, include_hidden: bool = False):
     query = db.query(models.Photographer)
+    if not include_hidden:
+        query = query.filter(models.Photographer.is_public == True)
     if search:
         query = query.filter(models.Photographer.name.contains(search))
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(models.Photographer.display_order.asc(), models.Photographer.name.asc()).offset(skip).limit(limit).all()
 
 def get_photographer(db: Session, photographer_id: int):
     return db.query(models.Photographer).filter(models.Photographer.id == photographer_id).first()

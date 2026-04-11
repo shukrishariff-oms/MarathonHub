@@ -47,6 +47,8 @@ class PhotographerBase(BaseModel):
     facebook_url: Optional[str] = None
     x_url: Optional[str] = None
     coverage_areas_json: Optional[str] = "[]"
+    is_public: Optional[bool] = True
+    display_order: Optional[int] = 0
 
 class PhotographerCreate(PhotographerBase):
     pass
