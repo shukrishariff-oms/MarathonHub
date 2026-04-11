@@ -54,15 +54,16 @@ export default function PhotographerList() {
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="inline-flex justify-center"
+                    className="flex flex-col items-center space-y-2"
                 >
-                    {/* Perfect Replica of the Uploaded Logo */}
-                    <div className="flex items-center px-6 py-4 md:px-8 md:py-6 bg-[#C32328] shadow-2xl rounded-sm">
-                        <Aperture className="w-12 h-12 md:w-16 md:h-16 text-white shrink-0 mr-4 md:mr-6" strokeWidth={1.5} />
-                        <div className="flex flex-col items-start leading-[1.1] text-white tracking-widest font-sans font-bold">
-                            <span className="text-[22px] md:text-[32px] pt-1">MARATHON</span>
-                            <span className="text-[22px] md:text-[32px] pb-1">HUB</span>
-                        </div>
+                    <div className="relative group">
+                        {/* Glow Effect */}
+                        <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                        
+                        <h1 className="relative text-6xl md:text-8xl font-display font-black tracking-tighter italic uppercase leading-none">
+                            <span className="text-white">MARATHON</span>
+                            <span className="text-primary drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]">HUB</span>
+                        </h1>
                     </div>
                 </motion.div>
                 <motion.p
