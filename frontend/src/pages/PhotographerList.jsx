@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Camera, ArrowRight, User } from 'lucide-react';
+import { Search, Camera, ArrowRight, User, Aperture } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
@@ -52,25 +52,24 @@ export default function PhotographerList() {
             
             <header className="relative z-10 space-y-6 text-center max-w-3xl mx-auto pt-10">
                 <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5 }}
-                    className="inline-flex items-center justify-center p-2 mb-4 rounded-full bg-white/5 border border-white/10 backdrop-blur-md overflow-hidden shadow-2xl"
-                >
-                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4gIDxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjY2MyOTJiIi8+ICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+ICA8cGF0aCBkPSJNMjggMjhMODAgODAweiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiAvPiAgPHBhdGggZD0iTTI4IDcyTDcwIDIyeiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiAvPjwvc3ZnPg==" alt="Logo" className="w-12 h-12 rounded-full border-2 border-white/20"/>
-                </motion.div>
-                <motion.h1
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-4xl md:text-6xl font-display font-black text-white tracking-tighter uppercase italic drop-shadow-2xl"
+                    className="inline-flex justify-center"
                 >
-                    INDEPENDENT <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-accent to-primary">PHOTOGRAPHERS</span>
-                </motion.h1>
+                    {/* Perfect Replica of the Uploaded Logo */}
+                    <div className="flex items-center px-6 py-4 md:px-8 md:py-6 bg-[#C32328] shadow-2xl rounded-sm">
+                        <Aperture className="w-12 h-12 md:w-16 md:h-16 text-white shrink-0 mr-4 md:mr-6" strokeWidth={1.5} />
+                        <div className="flex flex-col items-start leading-[1.1] text-white tracking-widest font-sans font-bold">
+                            <span className="text-[22px] md:text-[32px] pt-1">INDEPENDENT</span>
+                            <span className="text-[22px] md:text-[32px] pb-1">PHOTOGRAPHERS</span>
+                        </div>
+                    </div>
+                </motion.div>
                 <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="text-lg text-slate-400 font-medium max-w-xl mx-auto"
+                    className="text-lg text-slate-400 font-medium max-w-xl mx-auto mt-8"
                 >
                     The official team capturing every triumph. Find your event memories.
                 </motion.p>
