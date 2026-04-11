@@ -55,16 +55,16 @@ export default function PhotographerList() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", bounce: 0.5 }}
-                    className="inline-flex items-center justify-center p-3 mb-4 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md"
+                    className="inline-flex items-center justify-center p-2 mb-4 rounded-full bg-white/5 border border-white/10 backdrop-blur-md overflow-hidden shadow-2xl"
                 >
-                    <Camera className="w-6 h-6 text-primary" />
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4gIDxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjY2MyOTJiIi8+ICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+ICA8cGF0aCBkPSJNMjggMjhMODAgODAweiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiAvPiAgPHBhdGggZD0iTTI4IDcyTDcwIDIyeiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiAvPjwvc3ZnPg==" alt="Logo" className="w-12 h-12 rounded-full border-2 border-white/20"/>
                 </motion.div>
                 <motion.h1
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-5xl md:text-6xl font-display font-black text-white tracking-tighter uppercase italic drop-shadow-2xl"
+                    className="text-4xl md:text-6xl font-display font-black text-white tracking-tighter uppercase italic drop-shadow-2xl"
                 >
-                    ELITE <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-pink-500">SHOOTERS</span>
+                    INDEPENDENT <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-accent to-primary">PHOTOGRAPHERS</span>
                 </motion.h1>
                 <motion.p
                     initial={{ opacity: 0 }}
@@ -72,7 +72,7 @@ export default function PhotographerList() {
                     transition={{ delay: 0.2 }}
                     className="text-lg text-slate-400 font-medium max-w-xl mx-auto"
                 >
-                    Discover the visual artists capturing every triumph. Find your event memories.
+                    The official team capturing every triumph. Find your event memories.
                 </motion.p>
 
                 {/* Enhanced Search Bar */}
