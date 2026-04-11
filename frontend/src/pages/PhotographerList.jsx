@@ -60,8 +60,8 @@ export default function PhotographerList() {
                     <div className="flex items-center px-6 py-4 md:px-8 md:py-6 bg-[#C32328] shadow-2xl rounded-sm">
                         <Aperture className="w-12 h-12 md:w-16 md:h-16 text-white shrink-0 mr-4 md:mr-6" strokeWidth={1.5} />
                         <div className="flex flex-col items-start leading-[1.1] text-white tracking-widest font-sans font-bold">
-                            <span className="text-[22px] md:text-[32px] pt-1">INDEPENDENT</span>
-                            <span className="text-[22px] md:text-[32px] pb-1">PHOTOGRAPHERS</span>
+                            <span className="text-[22px] md:text-[32px] pt-1">MARATHON</span>
+                            <span className="text-[22px] md:text-[32px] pb-1">HUB</span>
                         </div>
                     </div>
                 </motion.div>
@@ -71,7 +71,7 @@ export default function PhotographerList() {
                     transition={{ delay: 0.2 }}
                     className="text-lg text-slate-400 font-medium max-w-xl mx-auto mt-8"
                 >
-                    The official team capturing every triumph. Find your event memories.
+                    The official hub for event photography. Find your triumph.
                 </motion.p>
 
                 {/* Enhanced Search Bar */}
