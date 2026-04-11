@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Globe, Instagram, Facebook, Twitter, MapPin, ExternalLink, Camera, Info, Calendar, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Globe, Instagram, Facebook, Twitter, MapPin, ExternalLink, Camera, Info, Calendar, ArrowRight, User } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import api from '../api';
 
 export default function PhotographerDetail() {
     const { id } = useParams();
     const [photographer, setPhotographer] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const { scrollY } = useScroll();
+    const yHero = useTransform(scrollY, [0, 500], [0, 200]);
+    const opacityHero = useTransform(scrollY, [0, 300], [1, 0]);
+    const scaleHero = useTransform(scrollY, [0, 500], [1, 1.1]);
 
     useEffect(() => {
         api.get(`/photographers/${id}`)
@@ -22,179 +27,258 @@ export default function PhotographerDetail() {
     }, [id]);
 
     if (loading) return (
-        <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className="w-12 h-12 border-4 border-white/5 border-t-primary rounded-full animate-spin" />
-            <p className="text-slate-400 font-bold tracking-wide uppercase italic">Syncing portfolio fire...</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+            <div className="relative flex items-center justify-center">
+                <div className="absolute w-20 h-20 border-4 border-primary/20 rounded-full animate-ping" />
+                <div className="w-16 h-16 border-4 border-white/5 border-t-primary rounded-full animate-spin z-10 relative" />
+            </div>
+            <p className="text-primary font-bold tracking-[0.2em] uppercase text-sm mt-4">Syncing portfolio...</p>
         </div>
     );
 
     if (!photographer) return (
-        <div className="text-center py-32 glass-card">
-            <Info className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-            <h3 className="text-xl font-display font-bold text-slate-900 mb-2">Photographer Not Found</h3>
-            <p className="text-slate-500 font-medium">This profile might have been archived or removed.</p>
+        <div className="text-center py-32 mt-10 rounded-[2.5rem] bg-ohmai-charcoal border border-white/5 shadow-2xl max-w-4xl mx-auto">
+            <Info className="w-16 h-16 text-slate-500 mx-auto mb-6" />
+            <h3 className="text-2xl font-display font-black text-white mb-2 uppercase italic">Photographer Not Found</h3>
+            <p className="text-slate-400 font-medium">This profile might have been archived or removed from the manifest.</p>
+            <Link to="/photographers" className="inline-flex items-center gap-2 mt-8 px-6 py-3 bg-primary text-ohmai-charcoal font-bold rounded-xl hover:bg-primary-light transition-colors uppercase italic">
+                Return to Roster
+            </Link>
         </div>
     );
 
     return (
-        <div className="space-y-16 pb-20">
-            {/* Profile Hero */}
-            <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative overflow-hidden rounded-[2.5rem] bg-ohmai-charcoal border border-white/5 shadow-2xl"
+        <div className="space-y-24 pb-24 relative overflow-hidden">
+            {/* Immersive Parallax Hero */}
+            <motion.section 
+                style={{ y: yHero, opacity: opacityHero }}
+                className="relative h-[80vh] min-h-[600px] flex items-end pb-24 -mx-4 sm:-mx-8 lg:-mx-16 px-4 sm:px-8 lg:px-16"
             >
-                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
-                <div className="h-40 bg-gradient-to-r from-ohmai-charcoal via-primary to-accent opacity-80" />
+                {/* Background Parallax Elements */}
+                <motion.div style={{ scale: scaleHero }} className="absolute inset-0 z-0">
+                    <div className="absolute inset-0 bg-ohmai-charcoal" />
+                    {photographer.logo_url && (
+                        <>
+                            <img src={photographer.logo_url} alt="Bg" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-screen blur-sm" />
+                        </>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-[#0B0F1A]/80 to-transparent" />
+                    <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
+                    <div className="absolute top-1/2 left-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[100px] pointer-events-none" />
+                </motion.div>
 
-                <div className="relative z-10 px-8 pb-12 -mt-12 flex flex-col md:flex-row gap-8 items-start">
-                    <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-tr from-primary to-accent rounded-[2rem] blur opacity-25 group-hover:opacity-40 transition-opacity" />
+                {/* Massive Background Text */}
+                <div className="absolute bottom-1/2 translate-y-1/2 left-0 w-full overflow-hidden pointer-events-none z-0">
+                    <h1 className="text-[12vw] font-display font-black text-white/[0.02] whitespace-nowrap uppercase italic leading-none animate-[shimmer_20s_linear_infinite]">
+                        {photographer.brand || photographer.name} {photographer.name}
+                    </h1>
+                </div>
+
+                <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row gap-8 items-end">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8, y: 50 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: "spring", damping: 20 }}
+                        className="relative group shrink-0"
+                    >
+                        <div className="absolute -inset-2 bg-gradient-to-tr from-primary to-accent rounded-[2.5rem] blur-xl opacity-30 group-hover:opacity-60 transition-opacity duration-700 animate-pulse" />
                         {photographer.logo_url ? (
-                            <img src={photographer.logo_url} alt={photographer.name} className="relative h-40 w-40 rounded-[2rem] object-cover border-4 border-ohmai-charcoal-light shadow-xl" />
+                            <img src={photographer.logo_url} alt={photographer.name} className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] object-cover border-4 border-white/5 shadow-2xl group-hover:scale-[1.02] transition-transform duration-500" />
                         ) : (
-                            <div className="relative h-40 w-40 rounded-[2rem] bg-slate-50 flex items-center justify-center border-4 border-white shadow-xl">
-                                <Camera className="w-16 h-16 text-slate-200" />
+                            <div className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] bg-white/5 flex items-center justify-center border-4 border-white/5 shadow-2xl backdrop-blur-md">
+                                <Camera className="w-24 h-24 text-slate-500" />
                             </div>
                         )}
-                    </div>
+                    </motion.div>
 
-                    <div className="flex-1 space-y-4 pt-16">
-                        <div className="space-y-1">
-                            <h1 className="text-4xl md:text-5xl font-display font-black text-white tracking-tighter uppercase italic pr-4">{photographer.name}</h1>
-                            {photographer.brand && <p className="text-lg font-bold text-primary uppercase tracking-widest">{photographer.brand}</p>}
+                    <motion.div
+                        initial={{ opacity: 0, x: 50 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="flex-1 space-y-6 pb-4"
+                    >
+                        <div className="space-y-2">
+                            {photographer.brand && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-sm tracking-widest uppercase mb-2">
+                                    {photographer.brand}
+                                </motion.div>
+                            )}
+                            <h1 className="text-5xl lg:text-7xl font-display font-black text-white tracking-tighter uppercase italic leading-none drop-shadow-lg">
+                                {photographer.name}
+                            </h1>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex gap-4">
                             {photographer.website_url && (
-                                <a href={photographer.website_url} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-primary transition-all hover:scale-110 border border-white/5">
-                                    <Globe className="h-5 w-5" />
+                                <a href={photographer.website_url} target="_blank" rel="noopener noreferrer" className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-primary hover:bg-white/10 transition-all hover:-translate-y-1 hover:shadow-lg border border-white/10">
+                                    <Globe className="h-6 w-6" />
                                 </a>
                             )}
                             {photographer.instagram_url && (
-                                <a href={photographer.instagram_url} target="_blank" rel="noopener noreferrer" className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
-                                    <Instagram className="h-5 w-5" />
+                                <a href={photographer.instagram_url} target="_blank" rel="noopener noreferrer" className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-pink-500 hover:bg-white/10 transition-all hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(236,72,153,0.2)] border border-white/10">
+                                    <Instagram className="h-6 w-6" />
                                 </a>
                             )}
                             {photographer.facebook_url && (
-                                <a href={photographer.facebook_url} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-blue-500 transition-all hover:scale-110 border border-white/5">
-                                    <Facebook className="h-5 w-5" />
+                                <a href={photographer.facebook_url} target="_blank" rel="noopener noreferrer" className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-blue-500 hover:bg-white/10 transition-all hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] border border-white/10">
+                                    <Facebook className="h-6 w-6" />
                                 </a>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                <div className="px-8 pb-12 grid md:grid-cols-3 gap-12">
-                    <div className="md:col-span-2 space-y-4">
-                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">About the Artist</h3>
-                        <p className="text-lg text-slate-400 font-medium leading-relaxed italic border-l-4 border-primary/20 pl-6">
-                            {photographer.bio || "No biography provided."}
-                        </p>
-                    </div>
-
-                    <div className="space-y-6">
-                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Coverage Specialities</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {JSON.parse(photographer.coverage_areas_json || '[]').map((area, idx) => (
-                                <span key={idx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-slate-300 font-bold border border-white/5">
-                                    <MapPin className="h-3.5 w-3.5 text-primary" />
-                                    {area}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
+                    </motion.div>
                 </div>
             </motion.section>
 
-            {/* Covered Events Section */}
-            <section className="space-y-10">
-                <div className="flex items-end justify-between">
-                    <div className="space-y-2">
-                        <h2 className="text-3xl font-display font-black text-white tracking-tighter uppercase italic">Recent Assignments</h2>
-                        <p className="text-slate-400 font-medium">Galleries and results from recent octane coverage.</p>
-                    </div>
-                </div>
+            {/* Profile Intel */}
+            <div className="max-w-7xl mx-auto space-y-24 px-4 sm:px-8">
+                
+                <section className="grid lg:grid-cols-3 gap-12 lg:gap-20">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="lg:col-span-2 space-y-6"
+                    >
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-4">
+                            <span className="w-8 h-px bg-slate-700"></span> About the Artist
+                        </h3>
+                        <div className="relative">
+                            <div className="absolute -left-6 top-0 bottom-0 w-1 bg-gradient-to-b from-primary via-accent to-transparent rounded-full opacity-50" />
+                            <p className="text-xl lg:text-2xl text-slate-300 font-medium leading-relaxed italic">
+                                {photographer.bio || "Crafting visual narratives from starting pistol to finish line tape. Every frame is a dedicated freeze-frame of dedication."}
+                            </p>
+                        </div>
+                    </motion.div>
 
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {photographer.assignments && photographer.assignments.length > 0 ? (
-                        photographer.assignments.map((assignment, idx) => {
-                            const event = assignment.event;
-                            if (!event) return null;
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.2 }}
+                        className="space-y-6 bg-ohmai-charcoal border border-white/5 rounded-[2rem] p-8 shadow-xl"
+                    >
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Coverage Zones</h3>
+                        <div className="flex flex-wrap gap-3">
+                            {JSON.parse(photographer.coverage_areas_json || '[]').map((area, idx) => (
+                                <span key={idx} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 text-slate-200 font-bold border border-white/10 hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-default">
+                                    <MapPin className="h-4 w-4 text-primary" />
+                                    {area}
+                                </span>
+                            ))}
+                            {(!photographer.coverage_areas_json || JSON.parse(photographer.coverage_areas_json).length === 0) && (
+                                <span className="text-slate-500 italic">No specific zones listed.</span>
+                            )}
+                        </div>
+                    </motion.div>
+                </section>
 
-                            return (
-                                <motion.div
-                                    key={assignment.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{ delay: idx * 0.1 }}
-                                    className="glass-card flex flex-col group p-1 overflow-hidden"
-                                >
-                                    <div className="p-6 flex-grow">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2 text-slate-400">
-                                                <Calendar className="w-3.5 h-3.5 text-primary" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                                                    {new Date(event.date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                {/* Film-Strip Assignments Section */}
+                <section className="space-y-12">
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        className="flex items-center gap-6"
+                    >
+                        <h2 className="text-4xl lg:text-5xl font-display font-black text-white tracking-tighter uppercase italic">
+                            Assignment <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Archive</span>
+                        </h2>
+                        <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+                    </motion.div>
+
+                    <div className="grid gap-8 lg:grid-cols-2">
+                        {photographer.assignments && photographer.assignments.length > 0 ? (
+                            photographer.assignments.map((assignment, idx) => {
+                                const event = assignment.event;
+                                if (!event) return null;
+
+                                return (
+                                    <motion.div
+                                        key={assignment.id}
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        whileInView={{ opacity: 1, scale: 1 }}
+                                        viewport={{ once: true }}
+                                        whileHover={{ y: -5 }}
+                                        transition={{ delay: idx * 0.1, duration: 0.4 }}
+                                        className="group relative bg-[#0B0F1A] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col md:flex-row"
+                                    >
+                                        {/* Abstract Cover / Film Frame */}
+                                        <div className="w-full md:w-48 h-48 md:h-auto bg-gradient-to-br from-white/5 to-white/10 relative overflow-hidden flex-shrink-0">
+                                            {/* Film track holes */}
+                                            <div className="absolute top-0 bottom-0 left-2 w-2 flex flex-col justify-around py-4 z-10">
+                                                {[...Array(6)].map((_, i) => <div key={i} className="w-2 h-3 bg-[#0B0F1A] rounded-sm opacity-50" />)}
+                                            </div>
+                                            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent/20 mix-blend-overlay group-hover:scale-110 transition-transform duration-700" />
+                                            {event.logo_url ? (
+                                                <img src={event.logo_url} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500" alt="Event" />
+                                            ) : (
+                                                <Camera className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 text-white/10 group-hover:text-primary/20 transition-colors duration-500" />
+                                            )}
+                                        </div>
+
+                                        <div className="p-8 flex flex-col flex-grow relative">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
+                                            
+                                            <div className="flex items-center gap-2 text-primary mb-4">
+                                                <Calendar className="w-4 h-4" />
+                                                <span className="text-xs font-black uppercase tracking-widest">
+                                                    {new Date(event.date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                                                 </span>
                                             </div>
-                                        </div>
 
-                                        <h3 className="text-xl font-display font-black text-white group-hover:text-primary transition-colors leading-tight mb-4 uppercase italic">
-                                            {event.name}
-                                        </h3>
+                                            <h3 className="text-2xl font-display font-black text-white group-hover:text-primary transition-colors leading-tight mb-6 uppercase italic pr-4">
+                                                {event.name}
+                                            </h3>
 
-                                        <div className="space-y-3">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Event Specific Coverage</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {JSON.parse(assignment.km_coverage_json || '[]').map((km, i) => (
-                                                    <span key={i} className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/5 text-primary border border-primary/10">
-                                                        {km}
-                                                    </span>
-                                                ))}
+                                            <div className="mt-auto space-y-4">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Coverage</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {JSON.parse(assignment.km_coverage_json || '[]').map((km, i) => (
+                                                        <span key={i} className="px-3 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary border border-primary/20 inline-block">
+                                                            {km}
+                                                        </span>
+                                                    ))}
+                                                    {(!assignment.km_coverage_json || JSON.parse(assignment.km_coverage_json).length === 0) && (
+                                                        <span className="text-slate-500 text-xs italic">General</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    <a
-                                        href={assignment.gallery_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={() => {
-                                            api.post('/track', {
-                                                path: assignment.gallery_url,
-                                                entity_type: 'event', // Tracking event interest from photographer profile? Or still photographer?
-                                                // Actually, if they are on photographer profile and go to gallery, it's still engagement for photographer.
-                                                // But let's track as 'other' or maybe 'photographer_gallery_click'?
-                                                // To keep it simple and showing in 'Top Photographers', we use 'photographer'.
-                                                // Wait, if I use entity_type 'photographer' and entity_id 'photographer.id', it counts as a view.
-                                                // Here we are listing assignments. The user is ALREADY on the photographer profile (so 1 view counted).
-                                                // If they click a gallery, should it count as ANOTHER view?
-                                                // User says "dia akan kita photographer yang dah di assign".
-                                                // Let's count it as 'photographer' view for now to boost stats.
-                                                path: assignment.gallery_url,
-                                                entity_type: 'photographer',
-                                                entity_id: photographer.id
-                                            }).catch(console.error);
-                                        }}
-                                        className="p-5 bg-primary text-ohmai-charcoal flex justify-center items-center gap-3 font-black group-hover:scale-[1.02] transition-transform uppercase italic"
-                                    >
-                                        Browse Photos
-                                        <ArrowRight className="w-4 h-4" />
-                                    </a>
-                                </motion.div>
-                            );
-                        })
-                    ) : (
-                        <div className="col-span-full py-24 text-center glass-card bg-slate-50/50 border-dashed">
-                            <Camera className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-                            <h3 className="text-xl font-display font-bold text-slate-900 mb-2">No history found</h3>
-                            <p className="text-slate-500 font-medium">Galleries will appear here once assignments are completed.</p>
-                        </div>
-                    )}
-                </div>
-            </section>
+                                            {/* Action Button - Glows on hover */}
+                                            <a
+                                                href={assignment.gallery_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => {
+                                                    api.post('/track', {
+                                                        path: assignment.gallery_url,
+                                                        entity_type: 'photographer',
+                                                        entity_id: photographer.id
+                                                    }).catch(console.error);
+                                                }}
+                                                className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:w-auto group-hover:px-6 transition-all duration-300 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2 text-transparent group-hover:text-ohmai-charcoal font-black uppercase italic whitespace-nowrap">
+                                                    <span>View Gallery</span>
+                                                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-ohmai-charcoal shrink-0" />
+                                                </div>
+                                                <ArrowRight className="w-5 h-5 text-slate-400 absolute group-hover:opacity-0 transition-opacity" />
+                                            </a>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        ) : (
+                            <div className="col-span-full py-32 rounded-[2.5rem] text-center bg-white/5 border border-white/5 border-dashed relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <Camera className="w-20 h-20 text-slate-600 mx-auto mb-6 group-hover:scale-110 group-hover:text-primary/50 transition-all duration-500" />
+                                <h3 className="text-2xl font-display font-black text-white mb-2 uppercase italic">No History Found</h3>
+                                <p className="text-slate-400 font-medium">This visual artist has not been assigned to any events yet.</p>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            </div>
         </div>
     );
 }
