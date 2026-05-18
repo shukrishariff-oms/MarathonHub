@@ -454,9 +454,8 @@ def _build_event_meta(event):
     description += ". Find your race photos on MarathonHub."
 
     url = f"{SITE_URL}/events/{event.id}"
-    image = event.cover_image_url or f"{SITE_URL}/og-image.jpg"
-    if image and not image.startswith("http"):
-        image = f"{SITE_URL}{image}"
+    # Use dynamic OG image with photographer list (falls back to static if generation fails)
+    image = f"{SITE_URL}/api/og/event/{event.id}.png"
 
     json_ld = {
         "@context": "https://schema.org",
@@ -565,6 +564,198 @@ def sitemap_xml(db: Session = Depends(get_db)):
         + "\n</urlset>\n"
     )
     return Response(content=body, media_type="application/xml")
+
+
+# -----------------------------------------------------------------------------
+# Dynamic OG Image Generator (for social media share preview)
+# -----------------------------------------------------------------------------
+_OG_FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+_OG_FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+_og_cache = {}  # in-memory cache: {event_id: (png_bytes, expires_at)}
+
+
+def _font(size, bold=False):
+    """Load font safely with fallback."""
+    try:
+        from PIL import ImageFont
+        path = _OG_FONT_BOLD if bold else _OG_FONT_REGULAR
+        return ImageFont.truetype(path, size)
+    except Exception:
+        from PIL import ImageFont
+        return ImageFont.load_default()
+
+
+def _generate_event_og_image(event):
+    """Generate 1200x630 OG image for an event with photographer list."""
+    from PIL import Image, ImageDraw
+    import io
+
+    W, H = 1200, 630
+    BG = (15, 23, 42)        # slate-900
+    PRIMARY = (251, 191, 36) # amber-400 (MarathonHub brand vibe)
+    WHITE = (255, 255, 255)
+    MUTED = (148, 163, 184)  # slate-400
+    ACCENT = (59, 130, 246)  # blue-500
+
+    img = Image.new("RGB", (W, H), BG)
+    draw = ImageDraw.Draw(img)
+
+    # Decorative top bar
+    draw.rectangle([0, 0, W, 8], fill=PRIMARY)
+
+    # Brand label
+    draw.text((60, 40), "MARATHONHUB", font=_font(22, bold=True), fill=PRIMARY)
+
+    # Event title (wrap if too long)
+    title = event.name or "Race Event"
+    title_font = _font(56, bold=True)
+
+    def _wrap(text, font, max_width):
+        words = text.split()
+        lines = []
+        current = ""
+        for word in words:
+            test = (current + " " + word).strip()
+            bbox = draw.textbbox((0, 0), test, font=font)
+            if bbox[2] - bbox[0] <= max_width:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines[:2]  # max 2 lines
+
+    title_lines = _wrap(title, title_font, W - 120)
+    y = 90
+    for line in title_lines:
+        draw.text((60, y), line, font=title_font, fill=WHITE)
+        y += 70
+
+    # Date + location
+    info_y = y + 10
+    info_font = _font(28)
+    date_str = ""
+    try:
+        if event.date:
+            date_str = event.date.strftime("%d %B %Y") if hasattr(event.date, "strftime") else str(event.date)[:10]
+    except Exception:
+        pass
+    if date_str:
+        draw.text((60, info_y), f"📅  {date_str}", font=info_font, fill=MUTED)
+        info_y += 42
+    if event.location:
+        loc = event.location
+        if len(loc) > 50:
+            loc = loc[:47] + "..."
+        draw.text((60, info_y), f"📍  {loc}", font=info_font, fill=MUTED)
+        info_y += 42
+
+    # Photographer section
+    assignments = sorted(
+        getattr(event, "assignments", []) or [],
+        key=lambda a: (not getattr(a, "is_pinned", False))
+    )
+    count = len(assignments)
+    section_y = info_y + 30
+    label = f"PHOTOGRAPHERS ({count})" if count else "PHOTOGRAPHERS"
+    draw.text((60, section_y), label, font=_font(20, bold=True), fill=PRIMARY)
+
+    list_y = section_y + 38
+    name_font = _font(24, bold=True)
+    max_show = 6
+    shown = 0
+    for a in assignments[:max_show]:
+        try:
+            pname = (a.photographer.name if a.photographer else "Photographer")
+            if len(pname) > 32:
+                pname = pname[:29] + "..."
+            # Bullet
+            draw.ellipse([60, list_y + 10, 70, list_y + 20], fill=ACCENT)
+            draw.text((85, list_y), pname, font=name_font, fill=WHITE)
+            list_y += 38
+            shown += 1
+            if list_y > H - 80:
+                break
+        except Exception:
+            continue
+
+    if count > shown:
+        draw.text((85, list_y), f"+ {count - shown} more", font=_font(20), fill=MUTED)
+
+    # Footer
+    draw.text((60, H - 50), "marathonhub.ohmaishoot.com", font=_font(18), fill=MUTED)
+
+    # Output
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+@app.get("/api/og/event/{event_id}.png", include_in_schema=False)
+def og_image_event(event_id: int, db: Session = Depends(get_db)):
+    """Dynamic OG image for an event. Cached 10 minutes."""
+    import time
+    now = time.time()
+    cached = _og_cache.get(event_id)
+    if cached and cached[1] > now:
+        return Response(content=cached[0], media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=600"})
+
+    event = crud.get_event(db, event_id=event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    try:
+        png_bytes = _generate_event_og_image(event)
+        _og_cache[event_id] = (png_bytes, now + 600)  # 10 min cache
+        return Response(content=png_bytes, media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=600"})
+    except Exception as e:
+        print(f"OG image generation failed for event {event_id}: {e}")
+        # Fallback to static og-image.jpg
+        og_path = os.path.join(BASE_DIR, "static", "og-image.jpg")
+        if os.path.exists(og_path):
+            return FileResponse(og_path)
+        raise HTTPException(status_code=500, detail="OG image generation failed")
+
+
+@app.get("/api/share-text/event/{event_id}", include_in_schema=False)
+def share_text_event(event_id: int, db: Session = Depends(get_db)):
+    """Plain text version of event info for copy-paste sharing."""
+    event = crud.get_event(db, event_id=event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    lines = [f"📷 {event.name}"]
+    try:
+        if event.date:
+            date_str = event.date.strftime("%d %B %Y") if hasattr(event.date, "strftime") else str(event.date)[:10]
+            lines.append(f"📅 {date_str}")
+    except Exception:
+        pass
+    if event.location:
+        lines.append(f"📍 {event.location}")
+
+    assignments = sorted(
+        getattr(event, "assignments", []) or [],
+        key=lambda a: (not getattr(a, "is_pinned", False))
+    )
+    if assignments:
+        lines.append("")
+        lines.append(f"Photographers ({len(assignments)}):")
+        for a in assignments:
+            try:
+                pname = a.photographer.name if a.photographer else None
+                if pname:
+                    lines.append(f"📸 {pname}")
+            except Exception:
+                continue
+
+    lines.append("")
+    lines.append(f"{SITE_URL}/events/{event_id}")
+    return {"text": "\n".join(lines)}
 
 
 # -----------------------------------------------------------------------------
