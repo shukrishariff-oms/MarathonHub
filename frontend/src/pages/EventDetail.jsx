@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2 } from 'lucide-react';
+import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 
@@ -10,6 +10,34 @@ export default function EventDetail() {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [copyState, setCopyState] = useState('idle'); // idle | copying | done
+
+    const handleCopyShare = async () => {
+        setCopyState('copying');
+        try {
+            const res = await api.get(`/share-text/event/${id}`);
+            const text = res.data?.text || '';
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for older browsers / insecure contexts
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            setCopyState('done');
+            setTimeout(() => setCopyState('idle'), 2500);
+        } catch (err) {
+            console.error('Copy failed:', err);
+            setCopyState('idle');
+            alert('Failed to copy. Please try again.');
+        }
+    };
 
     useEffect(() => {
         api.get(`/events/${id}`)
@@ -137,6 +165,28 @@ export default function EventDetail() {
                             >
                                 Telegram
                             </a>
+                            <button
+                                onClick={handleCopyShare}
+                                disabled={copyState === 'copying'}
+                                className={`px-4 py-2 rounded-xl border transition-all font-bold text-xs flex items-center gap-2 ${
+                                    copyState === 'done'
+                                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                                        : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                                }`}
+                                title="Copy event details with photographer list to clipboard"
+                            >
+                                {copyState === 'done' ? (
+                                    <>
+                                        <Check className="w-3.5 h-3.5" />
+                                        Copied!
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        Copy with list
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
 
