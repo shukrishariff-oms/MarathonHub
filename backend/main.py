@@ -410,6 +410,17 @@ def _inject_meta(html, title, description, url, image=None, json_ld=None, body_e
     html = _replace_meta(html, "property", "twitter:description", desc_e)
     html = _replace_meta(html, "property", "twitter:image", image_e)
 
+    # Inject extra og:image dimension hints (helps Threads/FB/IG scraper)
+    # These tell Meta scraper exact image specs so it doesn't skip the image
+    extra_og = (
+        f'  <meta property="og:image:secure_url" content="{image_e}" />\n'
+        f'  <meta property="og:image:type" content="image/png" />\n'
+        f'  <meta property="og:image:width" content="1200" />\n'
+        f'  <meta property="og:image:height" content="630" />\n'
+        f'  <meta property="og:image:alt" content="{title_e}" />\n'
+    )
+    html = html.replace("</head>", f"{extra_og}</head>", 1)
+
     # Add canonical link if not present
     if 'rel="canonical"' not in html:
         canonical = f'  <link rel="canonical" href="{url_e}" />\n'
