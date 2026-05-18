@@ -585,19 +585,73 @@ def _font(size, bold=False):
         return ImageFont.load_default()
 
 
+def _load_event_bg(event):
+    """Load event cover image as PIL Image. Returns None if unavailable."""
+    from PIL import Image
+    import io
+    url = getattr(event, 'cover_image_url', None)
+    if not url:
+        return None
+    try:
+        # Extract filename — works for both /api/uploads/x.png and full URLs
+        filename = url.split('?')[0].split('/')[-1]
+        if not filename:
+            return None
+        # Try local storage first (fast)
+        for candidate in ['/app/storage/uploads', os.path.join(BASE_DIR, 'storage', 'uploads')]:
+            local_path = os.path.join(candidate, filename)
+            if os.path.exists(local_path):
+                return Image.open(local_path).convert('RGB')
+        # Last resort: HTTP fetch
+        if url.startswith('http'):
+            import urllib.request
+            req = urllib.request.Request(url, headers={'User-Agent': 'MarathonHub-OG/1.0'})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return Image.open(io.BytesIO(r.read())).convert('RGB')
+    except Exception as e:
+        print(f"OG bg load failed: {e}")
+    return None
+
+
 def _generate_event_og_image(event):
     """Generate 1200x630 OG image for an event with photographer list."""
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageDraw, ImageFilter
     import io
 
     W, H = 1200, 630
-    BG = (15, 23, 42)        # slate-900
-    PRIMARY = (251, 191, 36) # amber-400 (MarathonHub brand vibe)
+    BG = (15, 23, 42)        # slate-900 fallback
+    PRIMARY = (251, 191, 36) # amber-400
     WHITE = (255, 255, 255)
-    MUTED = (148, 163, 184)  # slate-400
-    ACCENT = (59, 130, 246)  # blue-500
+    MUTED = (200, 210, 225)  # lighter for readability over poster
+    ACCENT = (251, 191, 36)  # use primary for bullets when over poster
 
-    img = Image.new("RGB", (W, H), BG)
+    # Try poster as background
+    bg_poster = _load_event_bg(event)
+    if bg_poster is not None:
+        try:
+            src_w, src_h = bg_poster.size
+            target_ratio = W / H
+            src_ratio = src_w / src_h
+            # Cover-fit crop
+            if src_ratio > target_ratio:
+                new_w = int(src_h * target_ratio)
+                offset_x = (src_w - new_w) // 2
+                bg_poster = bg_poster.crop((offset_x, 0, offset_x + new_w, src_h))
+            else:
+                new_h = int(src_w / target_ratio)
+                offset_y = (src_h - new_h) // 2
+                bg_poster = bg_poster.crop((0, offset_y, src_w, offset_y + new_h))
+            bg_poster = bg_poster.resize((W, H), Image.LANCZOS)
+            # Heavy blur + dark blend for text readability
+            bg_poster = bg_poster.filter(ImageFilter.GaussianBlur(radius=14))
+            dark = Image.new('RGB', (W, H), (8, 12, 24))
+            img = Image.blend(bg_poster, dark, 0.58)
+        except Exception as e:
+            print(f"OG bg processing failed: {e}")
+            img = Image.new("RGB", (W, H), BG)
+    else:
+        img = Image.new("RGB", (W, H), BG)
+
     draw = ImageDraw.Draw(img)
 
     # Decorative top bar
@@ -662,27 +716,47 @@ def _generate_event_og_image(event):
     label = f"PHOTOGRAPHERS ({count})" if count else "PHOTOGRAPHERS"
     draw.text((60, section_y), label, font=_font(20, bold=True), fill=PRIMARY)
 
-    list_y = section_y + 38
-    name_font = _font(24, bold=True)
-    max_show = 6
-    shown = 0
-    for a in assignments[:max_show]:
-        try:
-            pname = (a.photographer.name if a.photographer else "Photographer")
-            if len(pname) > 32:
-                pname = pname[:29] + "..."
-            # Bullet
-            draw.ellipse([60, list_y + 10, 70, list_y + 20], fill=ACCENT)
-            draw.text((85, list_y), pname, font=name_font, fill=WHITE)
-            list_y += 38
-            shown += 1
-            if list_y > H - 80:
-                break
-        except Exception:
-            continue
+    list_top = section_y + 38
 
-    if count > shown:
-        draw.text((85, list_y), f"+ {count - shown} more", font=_font(20), fill=MUTED)
+    if count > 0:
+        # Adaptive layout to fit ALL names where possible
+        if count <= 6:
+            row_h, name_size, max_chars, two_cols = 36, 24, 32, False
+        elif count <= 8:
+            row_h, name_size, max_chars, two_cols = 34, 22, 26, True
+        else:  # 9-12 (cap at 12, show "+ N more" for extras)
+            row_h, name_size, max_chars, two_cols = 32, 20, 24, True
+
+        max_show = min(count, 12)
+        per_col = (max_show + 1) // 2 if two_cols else max_show
+        name_font = _font(name_size, bold=True)
+        col2_offset = 580
+
+        for idx, a in enumerate(assignments[:max_show]):
+            try:
+                pname = (a.photographer.name if a.photographer else "Photographer")
+                if len(pname) > max_chars:
+                    pname = pname[:max_chars - 3] + "..."
+
+                if two_cols:
+                    col = 0 if idx < per_col else 1
+                    row = idx if col == 0 else idx - per_col
+                else:
+                    col, row = 0, idx
+
+                x_bullet = 60 + (col2_offset if col else 0)
+                x_text = 85 + (col2_offset if col else 0)
+                y = list_top + row * row_h
+
+                bullet_y = y + row_h // 2 - 5
+                draw.ellipse([x_bullet, bullet_y, x_bullet + 10, bullet_y + 10], fill=ACCENT)
+                draw.text((x_text, y), pname, font=name_font, fill=WHITE)
+            except Exception:
+                continue
+
+        if count > max_show:
+            draw.text((60, H - 80), f"+ {count - max_show} more photographer(s)",
+                      font=_font(18), fill=MUTED)
 
     # Footer
     draw.text((60, H - 50), "marathonhub.ohmaishoot.com", font=_font(18), fill=MUTED)
