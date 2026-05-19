@@ -1,0 +1,25 @@
+{
+  "name": "MarathonHub — Cari Gambar Larian Marathon Malaysia",
+  "short_name": "MarathonHub",
+  "description": "Direktori jurugambar marathon Malaysia. Cari gambar larian anda dari 40+ jurugambar yang meliputi acara larian utama di seluruh negara.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B0F1A",
+  "theme_color": "#0a0a0a",
+  "lang": "ms",
+  "icons": [
+    {
+      "src": "/ohmaishoot-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/ohmaishoot-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

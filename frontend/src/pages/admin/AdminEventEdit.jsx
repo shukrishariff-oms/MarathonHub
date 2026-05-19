@@ -18,7 +18,6 @@ export default function AdminEventEdit() {
         description: '',
         distances_json: '[]',
         status: 'Upcoming',
-        status: 'Upcoming',
         is_highlight: false,
         cover_image_url: '',
         highlight_images_json: '[]'
