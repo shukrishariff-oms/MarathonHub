@@ -1,8 +1,47 @@
-from typing import List, Optional
+from typing import List, Optional, Any
+import json as _json
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 
+
+# ---------------------------------------------------------------------------
+# Reusable validators
+# ---------------------------------------------------------------------------
+def _validate_optional_url(value: Optional[str]) -> Optional[str]:
+    """Accept None / empty / relative path / valid http(s) URL.
+
+    The DB stores both server-relative paths (/api/uploads/abc.png) and
+    fully-qualified URLs in the same column, so we can't just use
+    pydantic.HttpUrl. This keeps it permissive but rejects clearly
+    bogus values like "javascript:..." or "ftp://...".
+    """
+    if value is None or value == "":
+        return value
+    if value.startswith("/"):
+        return value  # server-relative is fine
+    if value.startswith(("http://", "https://")):
+        return value
+    raise ValueError(
+        "URL must be empty, a relative path starting with '/', or http(s)://"
+    )
+
+
+def _validate_json_list_string(value: Optional[str]) -> Optional[str]:
+    """Ensure the value is a JSON-serialised list of primitives."""
+    if value is None or value == "":
+        return value
+    try:
+        parsed = _json.loads(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"must be valid JSON: {exc}") from exc
+    if not isinstance(parsed, list):
+        raise ValueError("must be a JSON array")
+    return value
+
+
+# ---------------------------------------------------------------------------
 # Admin Schemas
+# ---------------------------------------------------------------------------
 class AdminLogin(BaseModel):
     username: str
     password: str
@@ -23,6 +62,17 @@ class AssignmentBase(BaseModel):
     note: Optional[str] = None
     is_pinned: Optional[bool] = False
 
+    @field_validator("km_coverage_json")
+    @classmethod
+    def _check_km_coverage(cls, v: str) -> str:
+        return _validate_json_list_string(v) or "[]"
+
+    @field_validator("gallery_url")
+    @classmethod
+    def _check_gallery_url(cls, v: str) -> str:
+        validated = _validate_optional_url(v)
+        return validated or v
+
 class AssignmentCreate(AssignmentBase):
     pass
 
@@ -32,7 +82,7 @@ class AssignmentUpdate(AssignmentBase):
 class Assignment(AssignmentBase):
     id: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -49,6 +99,22 @@ class PhotographerBase(BaseModel):
     coverage_areas_json: Optional[str] = "[]"
     is_public: Optional[bool] = True
     display_order: Optional[int] = 0
+
+    @field_validator(
+        "logo_url",
+        "website_url",
+        "instagram_url",
+        "facebook_url",
+        "x_url",
+    )
+    @classmethod
+    def _check_urls(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_optional_url(v)
+
+    @field_validator("coverage_areas_json")
+    @classmethod
+    def _check_coverage_areas(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_json_list_string(v)
 
 class PhotographerCreate(PhotographerBase):
     pass
@@ -77,6 +143,21 @@ class EventBase(BaseModel):
     is_highlight: Optional[bool] = False
     cover_image_url: Optional[str] = None
     highlight_images_json: Optional[str] = "[]"
+
+    @field_validator("cover_image_url")
+    @classmethod
+    def _check_cover_image_url(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_optional_url(v)
+
+    @field_validator("distances_json")
+    @classmethod
+    def _check_distances(cls, v: str) -> str:
+        return _validate_json_list_string(v) or "[]"
+
+    @field_validator("highlight_images_json")
+    @classmethod
+    def _check_highlight_images(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_json_list_string(v)
 
 class EventCreate(EventBase):
     pass

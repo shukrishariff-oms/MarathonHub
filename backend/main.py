@@ -662,7 +662,26 @@ def sitemap_xml(db: Session = Depends(get_db)):
 # -----------------------------------------------------------------------------
 _OG_FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 _OG_FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-_og_cache = {}  # in-memory cache: {event_id: (png_bytes, expires_at)}
+
+# Bounded TTL cache: {event_id: (png_bytes, expires_at)}
+# In-process dict with hard size cap so a flood of crawler hits on
+# random event_ids can't grow memory unbounded. Evicts the oldest
+# entries (insertion order) once full.
+_OG_CACHE_MAX = 200
+_og_cache: "dict[int, tuple[bytes, float]]" = {}
+
+
+def _og_cache_set(event_id: int, png_bytes: bytes, expires_at: float) -> None:
+    """Insert into the OG image cache, evicting oldest entries past the cap."""
+    # Refresh insertion order if the key already exists.
+    if event_id in _og_cache:
+        _og_cache.pop(event_id, None)
+    _og_cache[event_id] = (png_bytes, expires_at)
+    # Evict oldest until under cap.
+    while len(_og_cache) > _OG_CACHE_MAX:
+        # dict preserves insertion order — pop the first (oldest) entry.
+        oldest_key = next(iter(_og_cache))
+        _og_cache.pop(oldest_key, None)
 
 
 def _font(size, bold=False):
@@ -874,7 +893,7 @@ def og_image_event(event_id: int, db: Session = Depends(get_db)):
 
     try:
         png_bytes = _generate_event_og_image(event)
-        _og_cache[event_id] = (png_bytes, now + 600)  # 10 min cache
+        _og_cache_set(event_id, png_bytes, now + 600)  # 10 min cache
         return Response(content=png_bytes, media_type="image/png",
                         headers={"Cache-Control": "public, max-age=600"})
     except Exception as e:
