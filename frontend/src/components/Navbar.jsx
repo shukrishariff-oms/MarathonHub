@@ -31,18 +31,24 @@ export default function Navbar() {
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-8">
                         <Link to="/" className="flex items-center group">
-                            <div className="group-hover:scale-110 transition-transform duration-300">
-                                <img
-                                    src="/ohmaishoot-logo.png"
-                                    alt="OHMAi SHOOT!"
-                                    className="h-10 w-auto object-contain"
-                                />
+                            {/* Logo badge: gradient ring + glow on hover */}
+                            <div className="relative">
+                                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/40 via-ohmai-orange/20 to-accent/40 opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-500" />
+                                <div className="relative h-12 w-12 rounded-2xl bg-white/5 ring-1 ring-white/10 group-hover:ring-primary/40 backdrop-blur-md flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-105">
+                                    <img
+                                        src="/ohmaishoot-logo.png"
+                                        alt="OHMAi SHOOT!"
+                                        className="h-9 w-9 object-contain drop-shadow-[0_2px_6px_rgba(251,191,36,0.25)]"
+                                    />
+                                </div>
                             </div>
+                            {/* Vertical accent bar */}
+                            <div className="hidden sm:block w-px h-9 ml-3 bg-gradient-to-b from-transparent via-white/15 to-transparent" />
                             <div className="flex flex-col ml-3">
                                 <span className="text-2xl font-display font-black text-white tracking-tighter uppercase italic leading-none">
-                                    Marathon<span className="text-gradient pr-2">Hub</span>
+                                    Marathon<span className="text-gradient pr-1">Hub</span>
                                 </span>
-                                <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mt-0.5 leading-none">
+                                <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mt-1 leading-none">
                                     powered by <span className="text-primary italic">ohmaishoot!</span>
                                 </span>
                             </div>
