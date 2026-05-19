@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2, Copy, Check } from 'lucide-react';
+import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2, Copy, Check, CalendarPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 import { safeParse } from '../utils/safeJson';
@@ -247,6 +247,14 @@ export default function EventDetail() {
                                     </>
                                 )}
                             </button>
+                            <a
+                                href={`/api/events/${event.id}.ics`}
+                                className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all font-bold text-xs flex items-center gap-2"
+                                title="Download .ics file — works with Google Calendar, Apple Calendar, Outlook"
+                            >
+                                <CalendarPlus className="w-3.5 h-3.5" />
+                                Add to Calendar
+                            </a>
                         </div>
                     </div>
 

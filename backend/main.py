@@ -998,6 +998,118 @@ def share_text_event(event_id: int, db: Session = Depends(get_db)):
     return {"text": "\n".join(lines)}
 
 
+def _ics_escape(text: str) -> str:
+    """Escape text for an ICS field per RFC 5545 — backslash, comma,
+    semicolon, and newlines all need escaping."""
+    if text is None:
+        return ""
+    return (
+        str(text)
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+        .replace("\r", "")
+    )
+
+
+def _ics_fold(line: str) -> str:
+    """RFC 5545 §3.1: lines longer than 75 octets must be folded with
+    CRLF + single space. Most calendar apps tolerate unfolded lines but
+    Outlook is strict, so play it safe."""
+    if len(line) <= 75:
+        return line
+    out = [line[:75]]
+    rest = line[75:]
+    while rest:
+        out.append(" " + rest[:74])
+        rest = rest[74:]
+    return "\r\n".join(out)
+
+
+@app.get("/api/events/{event_id}.ics", include_in_schema=False)
+def event_ics(event_id: int, db: Session = Depends(get_db)):
+    """Download an .ics calendar file for an event. Compatible with
+    Google Calendar, Apple Calendar, Outlook, and most third-party apps."""
+    from datetime import datetime, timedelta, timezone
+
+    event = crud.get_event(db, event_id=event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Build start/end times. Events default to all-day if no time info.
+    # MarathonHub stores `date` as a DATETIME — treat it as the event
+    # start (assumed to be in MYT for display) and add a 6-hour window.
+    try:
+        start_dt = event.date if hasattr(event.date, "strftime") else None
+    except Exception:
+        start_dt = None
+
+    if not start_dt:
+        # Fallback to today midnight if the date is malformed
+        start_dt = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Treat stored datetime as MYT (UTC+8) and convert to UTC for the ICS.
+    # Most events store date with hour=0, but if hour was set we honour it.
+    myt = timezone(timedelta(hours=8))
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=myt)
+    end_dt = start_dt + timedelta(hours=6)
+    start_utc = start_dt.astimezone(timezone.utc)
+    end_utc = end_dt.astimezone(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+
+    def _fmt(dt):
+        return dt.strftime("%Y%m%dT%H%M%SZ")
+
+    summary = _ics_escape(event.name or "Race Event")
+    location = _ics_escape(event.location or "")
+    desc_parts = []
+    if event.description:
+        desc_parts.append(event.description.strip())
+    desc_parts.append(f"More info: {SITE_URL}/events/{event_id}")
+    description = _ics_escape("\n\n".join(desc_parts))
+
+    uid = f"event-{event_id}@marathonhub.ohmaishoot.com"
+    url_line = f"{SITE_URL}/events/{event_id}"
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//MarathonHub//Race Events//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{_fmt(now_utc)}",
+        f"DTSTART:{_fmt(start_utc)}",
+        f"DTEND:{_fmt(end_utc)}",
+        f"SUMMARY:{summary}",
+        f"DESCRIPTION:{description}",
+        f"LOCATION:{location}",
+        f"URL:{url_line}",
+        "STATUS:CONFIRMED",
+        # 1-day-before reminder
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        f"DESCRIPTION:Reminder: {summary} esok",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
+    body = "\r\n".join(_ics_fold(l) for l in lines) + "\r\n"
+
+    safe_name = "".join(c if c.isalnum() else "_" for c in (event.name or "event"))[:40]
+    return Response(
+        content=body,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}_{event_id}.ics"',
+        },
+    )
+
+
 # -----------------------------------------------------------------------------
 # FRONTEND HOSTING (Production)
 # -----------------------------------------------------------------------------
