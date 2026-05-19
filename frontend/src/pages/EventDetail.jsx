@@ -248,12 +248,35 @@ export default function EventDetail() {
                                 )}
                             </button>
                             <a
-                                href={`/api/events/${event.id}/calendar.ics`}
+                                href={(() => {
+                                    if (!event.date) return '#';
+                                    const start = new Date(event.date);
+                                    const end = new Date(start.getTime() + 6 * 60 * 60 * 1000);
+                                    const fmt = (d) => d.toISOString().replace(/[-:]|\.\d{3}/g, '');
+                                    const params = new URLSearchParams({
+                                        action: 'TEMPLATE',
+                                        text: event.name || 'Race Event',
+                                        dates: `${fmt(start)}/${fmt(end)}`,
+                                        location: event.location || '',
+                                        details: `${event.description || ''}\n\nMore info: https://marathonhub.ohmaishoot.com/events/${event.id}`,
+                                    });
+                                    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+                                })()}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all font-bold text-xs flex items-center gap-2"
-                                title="Download .ics file — works with Google Calendar, Apple Calendar, Outlook"
+                                title="Add to Google Calendar — opens in browser"
                             >
                                 <CalendarPlus className="w-3.5 h-3.5" />
-                                Add to Calendar
+                                Google Calendar
+                            </a>
+                            <a
+                                href={`/api/events/${event.id}/calendar.ics`}
+                                className="px-4 py-2 rounded-xl bg-white/5 border border-white/15 text-slate-200 hover:bg-white/10 transition-all font-bold text-xs flex items-center gap-2"
+                                title="Download .ics — Apple Calendar, Outlook"
+                            >
+                                <CalendarPlus className="w-3.5 h-3.5" />
+                                Apple/Outlook
                             </a>
                         </div>
                     </div>
