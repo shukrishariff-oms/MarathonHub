@@ -143,6 +143,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# -----------------------------------------------------------------------------
+# Security headers + asset caching
+# -----------------------------------------------------------------------------
+# Applied to every response. HSTS forces HTTPS for 1 year, X-Frame-Options
+# blocks clickjacking, X-Content-Type-Options stops MIME sniffing, and
+# Referrer-Policy + Permissions-Policy tighten browser behaviour.
+#
+# Cache-Control:
+#   - /assets/*  : hashed bundles → cache forever (immutable)
+#   - HTML shell : no-cache so users always pick up the latest SPA build
+@app.middleware("http")
+async def security_and_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+
+    # Security headers — safe defaults for a public read-mostly SPA.
+    response.headers.setdefault(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains",
+    )
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "geolocation=(), microphone=(), camera=(), payment=()",
+    )
+
+    # Cache-Control by path. StaticFiles doesn't set this by default.
+    path = request.url.path
+    if path.startswith("/assets/"):
+        # Vite emits hashed filenames (index-DSNDAQrY.js) → safe to cache forever.
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path in ("/og-image.jpg", "/ohmaishoot-logo.png", "/ohmai.png", "/favicon.ico"):
+        # Static brand assets — cache for a day, allow revalidation.
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    elif path == "/" or path.endswith(".html") or (
+        "." not in path.split("/")[-1] and not path.startswith("/api")
+    ):
+        # SPA shell — never cache HTML so new deploys are picked up immediately.
+        response.headers["Cache-Control"] = "no-cache"
+
+    return response
+
 # Dependency
 def get_db():
     db = database.SessionLocal()
@@ -972,6 +1016,16 @@ if os.path.exists(static_dir):
         if os.path.exists(og_image_path):
             return FileResponse(og_image_path)
         raise HTTPException(status_code=404, detail="OG image not found")
+
+    # Serve favicon — fall back to the logo PNG so browsers/tabs show
+    # something branded instead of a broken icon.
+    @app.get("/favicon.ico")
+    async def serve_favicon():
+        for candidate in ("favicon.ico", "ohmaishoot-logo.png"):
+            path = os.path.join(static_dir, candidate)
+            if os.path.exists(path):
+                return FileResponse(path)
+        raise HTTPException(status_code=404, detail="Favicon not found")
 
 # Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
