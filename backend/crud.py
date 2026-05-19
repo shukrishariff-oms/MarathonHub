@@ -22,23 +22,35 @@ from datetime import datetime
 def update_event_statuses(db: Session):
     """
     Auto-update events to 'Completed' if their date has passed.
+
+    Note: this is no longer called on every read. The Event.computed_status
+    @property handles status derivation virtually. This function is kept for
+    explicit/scheduled use only (e.g. a cron job that wants to persist the
+    state column for reporting). Per-row try/except so one bad row doesn't
+    poison the whole batch and trip subsequent reads via a stuck transaction.
     """
     now = datetime.utcnow()
-    # Find all upcoming events that are in the past
-    expired_events = db.query(models.Event).filter(
-        models.Event.status == "Upcoming",
-        models.Event.date < now
-    ).all()
-    
-    if expired_events:
-        for event in expired_events:
+    try:
+        expired_events = db.query(models.Event).filter(
+            models.Event.status == "Upcoming",
+            models.Event.date < now
+        ).all()
+    except Exception as e:
+        # Don't let a bad query break the caller — just log and bail.
+        print(f"update_event_statuses: query failed: {e}")
+        db.rollback()
+        return
+
+    for event in expired_events:
+        try:
             event.status = "Completed"
-        db.commit()
+            db.commit()
+        except Exception as e:
+            print(f"update_event_statuses: failed for event id={event.id}: {e}")
+            db.rollback()
 
 def get_events(db: Session, skip: int = 0, limit: int = 100, status: str = None, search: str = None, is_highlight: bool = None):
-    # Auto-update statuses before fetching
-    update_event_statuses(db)
-
+    # Status is derived virtually via Event.computed_status — no write-on-read.
     query = db.query(models.Event)
     if status and status != 'All':
         query = query.filter(models.Event.status == status)
@@ -46,7 +58,7 @@ def get_events(db: Session, skip: int = 0, limit: int = 100, status: str = None,
         query = query.filter(models.Event.name.contains(search))
     if is_highlight is not None:
         query = query.filter(models.Event.is_highlight == is_highlight)
-    
+
     # Sort by date descending
     return query.order_by(models.Event.date.desc()).offset(skip).limit(limit).all()
 
