@@ -218,47 +218,61 @@ async def upload_image(
 
 @app.get("/api/events", response_model=List[schemas.Event])
 def read_events(
-    skip: int = 0, 
-    limit: int = 100, 
-    status: Optional[str] = None,  # Changed default from "Upcoming" to None
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
     search: Optional[str] = None,
     month: Optional[str] = None,
     location: Optional[str] = None,
     is_highlight: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    # Basic filtering handling here or inside crud
+    """List events with SQL-side filtering + pagination.
+
+    Status filter is computed in SQL using today's UTC midnight boundaries
+    (matching Event.computed_status semantics), instead of loading every
+    row into memory and filtering in Python. This keeps the endpoint flat
+    as the events table grows.
+    """
+    from datetime import datetime, timedelta
+
     query = db.query(models.Event)
-    
-    # Don't filter by status in the query - we'll do it after computing status
-    
+
     if search:
         query = query.filter(models.Event.name.contains(search))
-        
+
     if location:
         query = query.filter(models.Event.location.contains(location))
-    
-    # Month filtering requires date manipulation, simple version:
+
     if month:
-        # Assuming month is "YYYY-MM"
+        # month is "YYYY-MM"
         query = query.filter(models.Event.date.astype(str).startswith(month))
 
     if is_highlight is not None:
         query = query.filter(models.Event.is_highlight == is_highlight)
 
-    # Get all events matching other filters
-    all_events = query.order_by(models.Event.date.asc()).all()
-    
-    # Filter by computed status only if status parameter is provided
+    # Push status filter into SQL — mirror Event.computed_status by comparing
+    # the date column against today's UTC midnight.
     if status and status != 'All':
-        filtered_events = [event for event in all_events if event.computed_status == status]
-    else:
-        filtered_events = all_events
-    
-    # Apply pagination
-    paginated_events = filtered_events[skip:skip + limit] if limit else filtered_events[skip:]
-    
-    return paginated_events
+        today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+        tomorrow_start = today_start + timedelta(days=1)
+        if status == 'Upcoming':
+            query = query.filter(models.Event.date >= tomorrow_start)
+        elif status == 'Recent':
+            query = query.filter(
+                models.Event.date >= today_start,
+                models.Event.date < tomorrow_start,
+            )
+        elif status == 'Past':
+            query = query.filter(models.Event.date < today_start)
+        # any other status string falls through with no extra filter
+
+    return (
+        query.order_by(models.Event.date.asc())
+        .offset(skip)
+        .limit(limit if limit else None)
+        .all()
+    )
 
 @app.get("/api/events/{event_id}", response_model=schemas.EventPublic) # utilizing EventPublic to include assignments
 def read_event(event_id: int, db: Session = Depends(get_db)):
