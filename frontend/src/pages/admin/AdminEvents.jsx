@@ -9,11 +9,40 @@ const TABS = [
     { key: 'All', label: 'All' },
 ];
 
+// Canonical venue keywords (cities/states). Matched as substring against
+// event.location, so "Putrajaya" tangkap "Dataran Putrajaya" juga.
+// Order = display priority for chips.
+const VENUE_KEYWORDS = [
+    'Kuala Lumpur',
+    'Putrajaya',
+    'Shah Alam',
+    'Cyberjaya',
+    'Selangor',
+    'Penang',
+    'Negeri Sembilan',
+    'Cameron Highlands',
+    'Pahang',
+    'Johor',
+    'Melaka',
+    'Perak',
+    'Kedah',
+    'Terengganu',
+    'Kelantan',
+    'Sabah',
+    'Sarawak',
+];
+
+const matchesVenue = (event, keyword) => {
+    if (!keyword) return true;
+    return (event.location || '').toLowerCase().includes(keyword.toLowerCase());
+};
+
 export default function AdminEvents() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Upcoming');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedVenue, setSelectedVenue] = useState(null); // null = all venues
     const [updating, setUpdating] = useState(null);
 
     useEffect(() => {
@@ -90,6 +119,32 @@ export default function AdminEvents() {
         return { Upcoming: upcoming, Past: past, All: events.length };
     }, [events]);
 
+    // Venue counts (scoped to active tab so chips reflect current view).
+    // Only show chips with at least 1 match. "Other" = events that don't
+    // match any keyword.
+    const venueChips = useMemo(() => {
+        const now = Date.now();
+        const scoped = events.filter(e => {
+            const ts = new Date(e.date.endsWith('Z') ? e.date : e.date + 'Z').getTime();
+            if (activeTab === 'Upcoming' && ts < now) return false;
+            if (activeTab === 'Past' && ts >= now) return false;
+            return true;
+        });
+
+        const chips = [];
+        let otherCount = 0;
+        for (const e of scoped) {
+            const matched = VENUE_KEYWORDS.some(k => matchesVenue(e, k));
+            if (!matched) otherCount++;
+        }
+        for (const k of VENUE_KEYWORDS) {
+            const c = scoped.filter(e => matchesVenue(e, k)).length;
+            if (c > 0) chips.push({ key: k, label: k, count: c });
+        }
+        if (otherCount > 0) chips.push({ key: '__other__', label: 'Other', count: otherCount });
+        return chips;
+    }, [events, activeTab]);
+
     // Filter + sort
     const visibleEvents = useMemo(() => {
         const now = Date.now();
@@ -99,6 +154,16 @@ export default function AdminEvents() {
             const ts = new Date(e.date.endsWith('Z') ? e.date : e.date + 'Z').getTime();
             if (activeTab === 'Upcoming' && ts < now) return false;
             if (activeTab === 'Past' && ts >= now) return false;
+
+            // Venue chip filter
+            if (selectedVenue) {
+                if (selectedVenue === '__other__') {
+                    if (VENUE_KEYWORDS.some(k => matchesVenue(e, k))) return false;
+                } else {
+                    if (!matchesVenue(e, selectedVenue)) return false;
+                }
+            }
+
             if (q) {
                 const hay = `${e.name} ${e.location || ''} ${e.organizer || ''}`.toLowerCase();
                 if (!hay.includes(q)) return false;
@@ -114,7 +179,7 @@ export default function AdminEvents() {
         });
 
         return list;
-    }, [events, activeTab, searchQuery]);
+    }, [events, activeTab, searchQuery, selectedVenue]);
 
     return (
         <div className="space-y-6">
@@ -174,6 +239,34 @@ export default function AdminEvents() {
                     />
                 </div>
             </div>
+
+            {/* Venue chips */}
+            {venueChips.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1">Venue:</span>
+                    <button
+                        onClick={() => setSelectedVenue(null)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${selectedVenue === null ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
+                    >
+                        All
+                    </button>
+                    {venueChips.map(chip => {
+                        const active = selectedVenue === chip.key;
+                        return (
+                            <button
+                                key={chip.key}
+                                onClick={() => setSelectedVenue(active ? null : chip.key)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${active ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
+                            >
+                                {chip.label}
+                                <span className={`ml-1.5 ${active ? 'text-primary/70' : 'text-slate-500'}`}>
+                                    {chip.count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
 
             {loading ? (
                 <div className="text-white text-center py-12">Loading...</div>
