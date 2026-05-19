@@ -311,8 +311,17 @@ def read_events(
             query = query.filter(models.Event.date < today_start)
         # any other status string falls through with no extra filter
 
+    # Sort: most-recent-first for Past events (so "Recent Galleries"
+    # shows last weekend's race, not 2024's). Everything else stays
+    # ASC so "Upcoming" lists the next race first.
+    order_clause = (
+        models.Event.date.desc()
+        if status == 'Past'
+        else models.Event.date.asc()
+    )
+
     return (
-        query.order_by(models.Event.date.asc())
+        query.order_by(order_clause)
         .offset(skip)
         .limit(limit if limit else None)
         .all()
