@@ -5,12 +5,15 @@ import { motion } from 'framer-motion';
 import api from '../api';
 import EventCarousel from '../components/EventCarousel';
 import EventCard from '../components/EventCard';
+import EventCardSkeleton from '../components/EventCardSkeleton';
 
 export default function Home() {
     const [searchTerm, setSearchTerm] = useState('');
     const [upcomingEvents, setUpcomingEvents] = useState([]);
     const [recentEvents, setRecentEvents] = useState([]);
     const [highlightedEvents, setHighlightedEvents] = useState([]);
+    const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+    const [loadingRecent, setLoadingRecent] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -18,11 +21,13 @@ export default function Home() {
         // "This Week" (≤7 days away) and the regular Upcoming row.
         api.get('/events?status=Upcoming&limit=20')
             .then(res => setUpcomingEvents(res.data))
-            .catch(err => console.error(err));
+            .catch(err => console.error(err))
+            .finally(() => setLoadingUpcoming(false));
 
         api.get('/events?status=Past&limit=3')
             .then(res => setRecentEvents(res.data))
-            .catch(err => console.error(err));
+            .catch(err => console.error(err))
+            .finally(() => setLoadingRecent(false));
 
         // Fetch ALL highlighted events for carousel
         api.get('/events?is_highlight=true')
@@ -216,12 +221,14 @@ export default function Home() {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-3">
-                    {laterUpcoming.map(event => (
-                        <motion.div key={event.id} variants={itemVariants}>
-                            <EventCard event={event} />
-                        </motion.div>
-                    ))}
-                    {laterUpcoming.length === 0 && thisWeekEvents.length === 0 && (
+                    {loadingUpcoming
+                        ? Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`sk-up-${i}`} />)
+                        : laterUpcoming.map(event => (
+                            <motion.div key={event.id} variants={itemVariants}>
+                                <EventCard event={event} />
+                            </motion.div>
+                        ))}
+                    {!loadingUpcoming && laterUpcoming.length === 0 && thisWeekEvents.length === 0 && (
                         <div className="col-span-full py-20 text-center glass-card bg-slate-50/50">
                             <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                             <p className="text-slate-500 font-bold">No upcoming events scheduled yet.</p>
@@ -248,12 +255,14 @@ export default function Home() {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-3">
-                    {recentEvents.map(event => (
-                        <motion.div key={event.id} variants={itemVariants}>
-                            <EventCard event={event} />
-                        </motion.div>
-                    ))}
-                    {recentEvents.length === 0 && (
+                    {loadingRecent
+                        ? Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`sk-re-${i}`} />)
+                        : recentEvents.map(event => (
+                            <motion.div key={event.id} variants={itemVariants}>
+                                <EventCard event={event} />
+                            </motion.div>
+                        ))}
+                    {!loadingRecent && recentEvents.length === 0 && (
                         <div className="col-span-full py-20 text-center glass-card border-dashed">
                             <Camera className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                             <p className="text-slate-500 font-bold">Galleries will appear here after the races.</p>

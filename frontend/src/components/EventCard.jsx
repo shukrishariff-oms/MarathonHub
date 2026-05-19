@@ -10,12 +10,16 @@ export default function EventCard({ event }) {
 
     return (
         <motion.div
-            whileHover={{ y: -5 }}
-            transition={{ duration: 0.3 }}
+            whileHover={{ y: -6 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            className="h-full"
         >
             <Link to={`/events/${event.id}`} className="block h-full">
-                <div className="glass-card h-full flex flex-col group p-1 overflow-hidden">
-                    <div className="p-5 flex-grow">
+                <div className="glass-card relative h-full flex flex-col group p-1 overflow-hidden border border-white/5 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300">
+                    {/* Subtle glow on hover */}
+                    <div className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-primary/0 via-primary/5 to-accent/10" />
+
+                    <div className="relative p-5 flex-grow">
                         <div className="flex justify-between items-center mb-4">
                             <span className={`z-10 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${event.status === 'Upcoming'
                                 ? 'bg-primary/90 text-ohmai-charcoal'
