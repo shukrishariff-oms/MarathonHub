@@ -392,10 +392,13 @@ def track_page_view(
 ):
     # Anonymize IP — read real client IP from X-Forwarded-For (Traefik/Coolify)
     # so analytics don't collapse every hit into the proxy IP.
+    # Hash includes user_agent so unique-visitor counts don't collapse to 1
+    # behind Malaysian telco CGNAT (Celcom/Maxis/Digi), where hundreds of
+    # mobile users share a single egress IP. UA acts as disambiguator.
     import hashlib
     ip = _client_ip(request)
     user_agent = request.headers.get('user-agent', '')
-    ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
+    ip_hash = hashlib.sha256(f"{ip}|{user_agent}".encode()).hexdigest()[:16]
 
     crud.create_page_view(db, view, ip_hash, user_agent)
     return {"status": "ok"}
