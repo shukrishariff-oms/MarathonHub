@@ -176,16 +176,25 @@ def get_analytics_summary(db: Session):
     from sqlalchemy import func, desc
     from datetime import datetime, timedelta
 
-    # Total Views
-    total_views = db.query(models.PageView).count()
+    # Unique-visitor key: ip_hash + user_agent.
+    # New tracks (after the 2aff222 fix) already bake UA into ip_hash, but
+    # concatenating again is harmless and lets the same query also reconstruct
+    # accurate unique counts from legacy rows where ip_hash was IP-only.
+    visitor_key = models.PageView.ip_hash.op('||')('|').op('||')(
+        func.coalesce(models.PageView.user_agent, '')
+    )
 
-    # Daily Visits (Last 30 days)
+    # Total Views (raw hits) and unique visitors (all-time)
+    total_views = db.query(models.PageView).count()
+    unique_visitors = db.query(func.count(func.distinct(visitor_key))).scalar() or 0
+
+    # Daily Visits (Last 30 days) — both raw hits and unique visitors per day
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    
-    # SQLite grouping by date using strftime
+
     daily_stats = db.query(
         func.strftime('%Y-%m-%d', models.PageView.timestamp).label('date'),
-        func.count(models.PageView.id).label('count')
+        func.count(models.PageView.id).label('count'),
+        func.count(func.distinct(visitor_key)).label('unique_visitors')
     ).filter(
         models.PageView.timestamp >= thirty_days_ago
     ).group_by(
@@ -193,14 +202,18 @@ def get_analytics_summary(db: Session):
     ).order_by(
         'date'
     ).all()
-    
-    daily_visits = [{"date": row.date, "count": row.count} for row in daily_stats]
 
-    # All Events (with views, including 0)
+    daily_visits = [
+        {"date": row.date, "count": row.count, "unique_visitors": row.unique_visitors}
+        for row in daily_stats
+    ]
+
+    # All Events (with views + unique visitors, including 0)
     event_stats = db.query(
         models.Event.id,
         models.Event.name,
-        func.count(models.PageView.id).label('views')
+        func.count(models.PageView.id).label('views'),
+        func.count(func.distinct(visitor_key)).label('unique_visitors')
     ).outerjoin(
         models.PageView, (models.Event.id == models.PageView.entity_id) & (models.PageView.entity_type == 'event')
     ).group_by(
@@ -209,13 +222,17 @@ def get_analytics_summary(db: Session):
         desc('views')
     ).all()
 
-    popular_events = [{"id": r.id, "name": r.name, "views": r.views} for r in event_stats]
+    popular_events = [
+        {"id": r.id, "name": r.name, "views": r.views, "unique_visitors": r.unique_visitors}
+        for r in event_stats
+    ]
 
-    # All Photographers (with views, including 0)
+    # All Photographers (with views + unique visitors, including 0)
     photog_stats = db.query(
         models.Photographer.id,
         models.Photographer.name,
-        func.count(models.PageView.id).label('views')
+        func.count(models.PageView.id).label('views'),
+        func.count(func.distinct(visitor_key)).label('unique_visitors')
     ).outerjoin(
         models.PageView, (models.Photographer.id == models.PageView.entity_id) & (models.PageView.entity_type == 'photographer')
     ).group_by(
@@ -224,13 +241,17 @@ def get_analytics_summary(db: Session):
         desc('views')
     ).all()
 
-    popular_photographers = [{"id": r.id, "name": r.name, "views": r.views} for r in photog_stats]
+    popular_photographers = [
+        {"id": r.id, "name": r.name, "views": r.views, "unique_visitors": r.unique_visitors}
+        for r in photog_stats
+    ]
 
     return {
         "daily_visits": daily_visits,
         "popular_events": popular_events,
         "popular_photographers": popular_photographers,
-        "total_views": total_views
+        "total_views": total_views,
+        "unique_visitors": unique_visitors,
     }
 
 def get_recent_views(db: Session, limit: int = 50):

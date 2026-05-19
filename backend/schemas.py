@@ -258,7 +258,8 @@ class PageViewCreate(BaseModel):
     event_id: Optional[int] = None
 
 class AnalyticsSummary(BaseModel):
-    daily_visits: List[dict] # {date: str, count: int}
-    popular_events: List[dict] # {id, name, views}
-    popular_photographers: List[dict] # {id, name, views}
+    daily_visits: List[dict] # {date: str, count: int, unique_visitors: int}
+    popular_events: List[dict] # {id, name, views, unique_visitors}
+    popular_photographers: List[dict] # {id, name, views, unique_visitors}
     total_views: int
+    unique_visitors: int = 0
