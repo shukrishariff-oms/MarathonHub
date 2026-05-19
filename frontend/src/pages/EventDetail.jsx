@@ -248,7 +248,7 @@ export default function EventDetail() {
                                 )}
                             </button>
                             <a
-                                href={`/api/events/${event.id}.ics`}
+                                href={`/api/events/${event.id}/calendar.ics`}
                                 className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all font-bold text-xs flex items-center gap-2"
                                 title="Download .ics file — works with Google Calendar, Apple Calendar, Outlook"
                             >

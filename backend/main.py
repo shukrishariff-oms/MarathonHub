@@ -1027,7 +1027,7 @@ def _ics_fold(line: str) -> str:
     return "\r\n".join(out)
 
 
-@app.get("/api/events/{event_id}.ics", include_in_schema=False)
+@app.get("/api/events/{event_id}/calendar.ics", include_in_schema=False)
 def event_ics(event_id: int, db: Session = Depends(get_db)):
     """Download an .ics calendar file for an event. Compatible with
     Google Calendar, Apple Calendar, Outlook, and most third-party apps."""
