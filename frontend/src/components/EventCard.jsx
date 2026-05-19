@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { safeParse } from '../utils/safeJson';
 
 export default function EventCard({ event }) {
     const formattedDate = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, {
@@ -48,7 +49,7 @@ export default function EventCard({ event }) {
                             </div>
 
                             <div className="mt-5 flex flex-wrap gap-2">
-                                {JSON.parse(event.distances_json || '[]').map((dist, idx) => (
+                                {safeParse(event.distances_json).map((dist, idx) => (
                                     <span key={idx} className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/5 text-slate-300 border border-white/5 group-hover:border-primary/20 group-hover:bg-primary/5 transition-colors">
                                         {dist}
                                     </span>

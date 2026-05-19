@@ -3,6 +3,7 @@ import { Search, Camera, ArrowRight, User, Aperture } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
+import { safeParse } from '../utils/safeJson';
 
 export default function PhotographerList() {
     const [photographers, setPhotographers] = useState([]);
@@ -158,7 +159,7 @@ export default function PhotographerList() {
 
                                             <div className="mt-auto space-y-6 relative z-10">
                                                 <div className="flex flex-wrap gap-2">
-                                                    {JSON.parse(p.coverage_areas_json || '[]').slice(0, 3).map((area, idx) => (
+                                                    {safeParse(p.coverage_areas_json).slice(0, 3).map((area, idx) => (
                                                         <span key={idx} className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-white/5 text-slate-400 border border-white/10 group-hover:border-white/20 transition-colors">
                                                             {area}
                                                         </span>

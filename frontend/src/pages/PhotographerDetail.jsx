@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Globe, Instagram, Facebook, Twitter, MapPin, ExternalLink, Camera, Info, Calendar, ArrowRight, User } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import api from '../api';
+import { safeParse } from '../utils/safeJson';
 
 export default function PhotographerDetail() {
     const { id } = useParams();
@@ -159,13 +160,13 @@ export default function PhotographerDetail() {
                     >
                         <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Coverage Zones</h3>
                         <div className="flex flex-wrap gap-3">
-                            {JSON.parse(photographer.coverage_areas_json || '[]').map((area, idx) => (
+                            {safeParse(photographer.coverage_areas_json).map((area, idx) => (
                                 <span key={idx} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 text-slate-200 font-bold border border-white/10 hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-default">
                                     <MapPin className="h-4 w-4 text-primary" />
                                     {area}
                                 </span>
                             ))}
-                            {(!photographer.coverage_areas_json || JSON.parse(photographer.coverage_areas_json).length === 0) && (
+                            {(!photographer.coverage_areas_json || safeParse(photographer.coverage_areas_json).length === 0) && (
                                 <span className="text-slate-500 italic">No specific zones listed.</span>
                             )}
                         </div>
@@ -233,12 +234,12 @@ export default function PhotographerDetail() {
                                             <div className="mt-auto space-y-4">
                                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Coverage</span>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {JSON.parse(assignment.km_coverage_json || '[]').map((km, i) => (
+                                                    {safeParse(assignment.km_coverage_json).map((km, i) => (
                                                         <span key={i} className="px-3 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary border border-primary/20 inline-block">
                                                             {km}
                                                         </span>
                                                     ))}
-                                                    {(!assignment.km_coverage_json || JSON.parse(assignment.km_coverage_json).length === 0) && (
+                                                    {(!assignment.km_coverage_json || safeParse(assignment.km_coverage_json).length === 0) && (
                                                         <span className="text-slate-500 text-xs italic">General</span>
                                                     )}
                                                 </div>

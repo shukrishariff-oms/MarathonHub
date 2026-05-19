@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import api from '../../api';
+import { safeParse } from '../../utils/safeJson';
 
 export default function AdminPhotographerEdit() {
     const { id } = useParams();
@@ -29,7 +30,7 @@ export default function AdminPhotographerEdit() {
                 .then(res => {
                     const data = res.data;
                     setFormData(data);
-                    setCoverageInput(JSON.parse(data.coverage_areas_json || '[]').join(', '));
+                    setCoverageInput(safeParse(data.coverage_areas_json).join(', '));
                 })
                 .catch(err => console.error(err));
         }

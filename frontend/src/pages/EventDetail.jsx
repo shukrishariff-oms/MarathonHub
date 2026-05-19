@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User, Search, Share2, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
+import { safeParse } from '../utils/safeJson';
 
 export default function EventDetail() {
     const { id } = useParams();
@@ -196,7 +197,7 @@ export default function EventDetail() {
                             <span className="text-xs font-black uppercase tracking-widest">Race Distances</span>
                         </div>
                         <div className="flex flex-wrap gap-3">
-                            {JSON.parse(event.distances_json || '[]').map((dist, idx) => (
+                            {safeParse(event.distances_json).map((dist, idx) => (
                                 <div key={idx} className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 transition-colors">
                                     <span className="text-xl font-display font-black text-white">{dist}</span>
                                 </div>
@@ -267,7 +268,7 @@ export default function EventDetail() {
                         </div>
                     )}
                     {filteredAssignments.map((assignment, idx) => {
-                        const kmList = JSON.parse(assignment.km_coverage_json || '[]');
+                        const kmList = safeParse(assignment.km_coverage_json);
                         const photographer = assignment.photographer;
 
                         return (

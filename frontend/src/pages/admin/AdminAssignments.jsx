@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Plus, Trash, ExternalLink, ArrowLeft, Star } from 'lucide-react';
 import api from '../../api';
+import { safeParse } from '../../utils/safeJson';
 
 export default function AdminAssignments() {
     const { eventId } = useParams();
@@ -149,7 +150,7 @@ export default function AdminAssignments() {
                                                     {assign.gallery_url} <ExternalLink className="h-3 w-3 shrink-0" />
                                                 </a>
                                                 <div className="mt-2 flex flex-wrap gap-1">
-                                                    {JSON.parse(assign.km_coverage_json || '[]').map((km, idx) => (
+                                                    {safeParse(assign.km_coverage_json).map((km, idx) => (
                                                         <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-slate-300 border border-white/10">
                                                             {km}
                                                         </span>

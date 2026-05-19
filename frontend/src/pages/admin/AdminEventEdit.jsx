@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import api from '../../api';
 import ImageUpload from '../../components/ImageUpload';
+import { safeParse } from '../../utils/safeJson';
 
 export default function AdminEventEdit() {
     const { id } = useParams();
@@ -46,9 +47,9 @@ export default function AdminEventEdit() {
                         })() : ''
                     });
 
-                    setDistancesInput(JSON.parse(data.distances_json || '[]').join(', '));
+                    setDistancesInput(safeParse(data.distances_json).join(', '));
 
-                    const images = JSON.parse(data.highlight_images_json || '[]');
+                    const images = safeParse(data.highlight_images_json);
                     setHighlightImagesInput(images.join('\n'));
                 })
                 .catch(err => console.error(err));
