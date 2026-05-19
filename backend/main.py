@@ -8,17 +8,24 @@ import models, schemas, crud, auth, database
 import shutil
 import os
 import uuid
+import logging
+
+logger = logging.getLogger("marathonhub")
 
 models.Base.metadata.create_all(bind=database.engine)
 
-# Run daily backup on startup
+# Resolve paths early so the rest of the module (including the startup
+# backup) can rely on them.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Run daily backup on startup (best-effort — never block app boot)
 try:
     import sys
     sys.path.append(os.path.join(BASE_DIR, ".."))
     from backup_db import create_backup
     create_backup()
 except Exception as e:
-    print(f"Startup backup skipped: {e}")
+    logger.warning("Startup backup skipped: %s", e)
 
 def check_and_migrate_db():
     try:
@@ -61,7 +68,7 @@ check_and_migrate_db()
 app = FastAPI(title="MarathonHub API", version="0.1.0")
 
 # Mount 'uploads' directory to serve images
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# (BASE_DIR resolved at top of file)
 # Look for storage in the same directory as main.py (Docker style)
 UPLOAD_DIR = os.path.join(BASE_DIR, "storage", "uploads")
 
@@ -87,7 +94,16 @@ origins = [
 ]
 
 if allowed_origins_env:
-    origins.extend(allowed_origins_env.split(","))
+    extra = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    origins.extend(extra)
+
+# Reject the wildcard when credentials are allowed — browsers will refuse it
+# anyway and it silently breaks auth. Force the operator to list origins.
+if "*" in origins:
+    raise RuntimeError(
+        "ALLOWED_ORIGINS cannot contain '*' while allow_credentials=True. "
+        "List explicit origins instead."
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,47 +122,69 @@ def get_db():
         db.close()
 
 # --- Public Endpoints ---
+
+# --- Upload constraints ---
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))  # 5 MB
+ALLOWED_UPLOAD_MIME = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
 
 @app.post("/api/upload")
-async def upload_image(file: UploadFile = File(...)):
-    # Generate unique filename
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: models.Admin = Depends(auth.get_current_user),
+):
+    """Authenticated image upload. Validates MIME, caps size, derives the
+    extension from the validated MIME type (never trusts the client filename).
+    """
+    # 1. MIME allowlist — reject anything that isn't an image we want to serve.
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_UPLOAD_MIME:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported file type: {content_type or 'unknown'}",
+        )
+    safe_extension = ALLOWED_UPLOAD_MIME[content_type]
+
+    # 2. Stream to disk with a hard size cap. Avoid loading the whole file
+    #    into memory and avoid trusting Content-Length headers.
+    unique_filename = f"{uuid.uuid4().hex}{safe_extension}"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # Return relative URL (works for both dev and production)
-    return {"url": f"/api/uploads/{unique_filename}"}
 
-origins = [
-    "http://localhost:5173", # Vite default
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://localhost",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Dependency
-def get_db():
-    db = database.SessionLocal()
+    bytes_written = 0
+    chunk_size = 64 * 1024
     try:
-        yield db
-    finally:
-        db.close()
+        with open(file_path, "wb") as buffer:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                bytes_written += len(chunk)
+                if bytes_written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File exceeds {MAX_UPLOAD_BYTES} bytes",
+                    )
+                buffer.write(chunk)
+    except HTTPException:
+        # Clean up partial file before re-raising
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        raise
+    except Exception:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        raise
 
-# --- Public Endpoints ---
+    return {"url": f"/api/uploads/{unique_filename}"}
 
 @app.get("/api/events", response_model=List[schemas.Event])
 def read_events(
@@ -338,14 +376,10 @@ def get_event_analytics(
 ):
     return crud.get_event_photographer_analytics(db, event_id)
 
-# --- Debug Endpoint ---
-@app.get("/api/debug-db")
-def debug_db(db: Session = Depends(get_db)):
-    try:
-        events = db.query(models.Event).all()
-        return {"event_count": len(events), "events": [{"id": e.id, "name": e.name, "date": e.date} for e in events]}
-    except Exception as e:
-        return {"error": str(e)}
+# --- Debug Endpoint (removed) ---
+# The previous /api/debug-db endpoint was public and leaked the full event
+# list plus raw exception strings. It has been removed. Use the admin
+# analytics endpoints (which require auth) for diagnostics instead.
 
 # -----------------------------------------------------------------------------
 # SEO — robots.txt, sitemap.xml, dynamic meta tags

@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -7,10 +8,21 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import schemas, database, models
 
-# Secret key for JWT. In production, this should be in env vars.
-SECRET_KEY = "larianhub_secret_key_change_me_in_prod"
+# Secret key for JWT. MUST be set in environment in production.
+# Falls back to an insecure dev value only when ENV != "production".
+_DEV_FALLBACK_SECRET = "larianhub_dev_only_do_not_use_in_prod"
+_env_secret = os.getenv("JWT_SECRET")
+if not _env_secret and os.getenv("ENV", "development").lower() == "production":
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required in production. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(64))'"
+    )
+SECRET_KEY: str = _env_secret or _DEV_FALLBACK_SECRET
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365 # 1 year
+# 12 hours — short enough to limit damage from stolen tokens, long enough
+# for a normal admin work session without forcing constant re-login.
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "720"))
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/admin/login")
