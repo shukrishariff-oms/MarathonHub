@@ -18,25 +18,84 @@ export default function EventDetail() {
         try {
             const res = await api.get(`/share-text/event/${id}`);
             const text = res.data?.text || '';
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(text);
-            } else {
-                // Fallback for older browsers / insecure contexts
+            let copied = false;
+
+            // 1. Modern Clipboard API — works on most desktop browsers
+            //    over HTTPS. Wrapped in its own try so a refusal here
+            //    (in-app browsers, missing permission) falls through to
+            //    the legacy + native-share fallbacks instead of jumping
+            //    straight to the alert.
+            if (navigator.clipboard?.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copied = true;
+                } catch (e) {
+                    console.warn('clipboard.writeText rejected:', e);
+                }
+            }
+
+            // 2. execCommand fallback with iOS-safe selection handling.
+            //    Plain ta.select() doesn't work on iOS Safari — need a
+            //    Range + setSelectionRange dance with a non-readonly,
+            //    contenteditable-friendly textarea positioned offscreen.
+            if (!copied) {
                 const ta = document.createElement('textarea');
                 ta.value = text;
+                ta.setAttribute('readonly', '');
                 ta.style.position = 'fixed';
+                ta.style.top = '0';
+                ta.style.left = '0';
                 ta.style.opacity = '0';
+                ta.style.pointerEvents = 'none';
                 document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
+
+                const range = document.createRange();
+                range.selectNodeContents(ta);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                ta.setSelectionRange(0, text.length);
+
+                try {
+                    copied = document.execCommand('copy');
+                } catch (e) {
+                    console.warn('execCommand copy failed:', e);
+                }
                 document.body.removeChild(ta);
             }
-            setCopyState('done');
-            setTimeout(() => setCopyState('idle'), 2500);
+
+            // 3. Native Web Share — opens the OS share sheet on mobile.
+            //    Better UX than a modal, and many in-app browsers expose
+            //    this even when they block clipboard writes.
+            if (!copied && navigator.share) {
+                try {
+                    await navigator.share({ text });
+                    copied = true;
+                } catch (e) {
+                    // AbortError = user dismissed the sheet, treat as
+                    // success-ish so we don't show the manual prompt.
+                    if (e?.name === 'AbortError') {
+                        setCopyState('idle');
+                        return;
+                    }
+                    console.warn('navigator.share failed:', e);
+                }
+            }
+
+            if (copied) {
+                setCopyState('done');
+                setTimeout(() => setCopyState('idle'), 2500);
+                return;
+            }
+
+            // 4. Last resort — show the text in a prompt so the user can
+            //    long-press / select-all + copy manually.
+            setCopyState('idle');
+            window.prompt('Salin teks ni (long-press untuk select all):', text);
         } catch (err) {
             console.error('Copy failed:', err);
             setCopyState('idle');
-            alert('Failed to copy. Please try again.');
+            alert('Gagal dapatkan teks share. Cuba refresh page.');
         }
     };
 
