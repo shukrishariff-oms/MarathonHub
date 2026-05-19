@@ -9,8 +9,34 @@ import shutil
 import os
 import uuid
 import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 logger = logging.getLogger("marathonhub")
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort real client IP behind a trusted reverse proxy.
+
+    Coolify/Traefik forwards the original IP in X-Forwarded-For. Without
+    this, every request looks like it's coming from the proxy and IP
+    hashing collapses all visitors into a single bucket.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        # First hop is the original client. Strip whitespace, ignore empties.
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+limiter = Limiter(key_func=_client_ip)
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -66,6 +92,10 @@ def check_and_migrate_db():
 check_and_migrate_db()
 
 app = FastAPI(title="MarathonHub API", version="0.1.0")
+
+# Rate limiter — applied per-route via @limiter.limit(...)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Mount 'uploads' directory to serve images
 # (BASE_DIR resolved at top of file)
@@ -340,17 +370,19 @@ def toggle_pin_assignment(assignment_id: int, db: Session = Depends(get_db), cur
 # --- Analytics Endpoints ---
 
 @app.post("/api/track", status_code=status.HTTP_201_CREATED)
+@limiter.limit(os.getenv("TRACK_RATE_LIMIT", "60/minute"))
 def track_page_view(
-    view: schemas.PageViewCreate, 
+    view: schemas.PageViewCreate,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    # Anonymize IP
+    # Anonymize IP — read real client IP from X-Forwarded-For (Traefik/Coolify)
+    # so analytics don't collapse every hit into the proxy IP.
     import hashlib
-    ip = request.client.host or "unknown"
+    ip = _client_ip(request)
     user_agent = request.headers.get('user-agent', '')
     ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
-    
+
     crud.create_page_view(db, view, ip_hash, user_agent)
     return {"status": "ok"}
 
