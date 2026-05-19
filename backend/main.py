@@ -1027,6 +1027,16 @@ if os.path.exists(static_dir):
                 return FileResponse(path)
         raise HTTPException(status_code=404, detail="Favicon not found")
 
+    # Serve PWA manifest — referenced from index.html for install prompt
+    # + theme. The catch-all SPA route rejects any path containing a dot,
+    # so we need an explicit handler here.
+    @app.get("/manifest.webmanifest")
+    async def serve_manifest():
+        path = os.path.join(static_dir, "manifest.webmanifest")
+        if os.path.exists(path):
+            return FileResponse(path, media_type="application/manifest+json")
+        raise HTTPException(status_code=404, detail="Manifest not found")
+
 # Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str, db: Session = Depends(get_db)):
