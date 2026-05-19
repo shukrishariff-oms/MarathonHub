@@ -1,11 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit, Trash, Search, ArrowLeft, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 
+const TABS = [
+    { key: 'Upcoming', label: 'Upcoming' },
+    { key: 'Past', label: 'Past' },
+    { key: 'All', label: 'All' },
+];
+
 export default function AdminEvents() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('Upcoming');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [updating, setUpdating] = useState(null);
 
     useEffect(() => {
         fetchEvents();
@@ -35,8 +44,6 @@ export default function AdminEvents() {
         }
     };
 
-    const [updating, setUpdating] = useState(null); // Track which event is being updated
-
     const toggleHighlight = async (event) => {
         if (updating) return;
         setUpdating(event.id);
@@ -58,7 +65,6 @@ export default function AdminEvents() {
 
             await api.put(`/admin/events/${event.id}`, payload);
 
-            // Update local state
             setEvents(events.map(e => e.id === event.id ? { ...e, is_highlight: newStatus } : e));
         } catch (error) {
             console.error("Failed to toggle highlight", error);
@@ -70,6 +76,45 @@ export default function AdminEvents() {
             setUpdating(null);
         }
     };
+
+    // Counts for tab badges (based on event date, not status field)
+    const counts = useMemo(() => {
+        const now = Date.now();
+        let upcoming = 0;
+        let past = 0;
+        for (const e of events) {
+            const ts = new Date(e.date.endsWith('Z') ? e.date : e.date + 'Z').getTime();
+            if (ts >= now) upcoming++;
+            else past++;
+        }
+        return { Upcoming: upcoming, Past: past, All: events.length };
+    }, [events]);
+
+    // Filter + sort
+    const visibleEvents = useMemo(() => {
+        const now = Date.now();
+        const q = searchQuery.trim().toLowerCase();
+
+        let list = events.filter(e => {
+            const ts = new Date(e.date.endsWith('Z') ? e.date : e.date + 'Z').getTime();
+            if (activeTab === 'Upcoming' && ts < now) return false;
+            if (activeTab === 'Past' && ts >= now) return false;
+            if (q) {
+                const hay = `${e.name} ${e.location || ''} ${e.organizer || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+
+        list.sort((a, b) => {
+            const ta = new Date(a.date.endsWith('Z') ? a.date : a.date + 'Z').getTime();
+            const tb = new Date(b.date.endsWith('Z') ? b.date : b.date + 'Z').getTime();
+            // Upcoming + All: earliest first; Past: most recent first
+            return activeTab === 'Past' ? tb - ta : ta - tb;
+        });
+
+        return list;
+    }, [events, activeTab, searchQuery]);
 
     return (
         <div className="space-y-6">
@@ -98,62 +143,108 @@ export default function AdminEvents() {
                 </div>
             </div>
 
+            {/* Tabs + Search */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <div className="inline-flex bg-white/5 border border-white/10 rounded-xl p-1 w-fit">
+                    {TABS.map(tab => {
+                        const active = activeTab === tab.key;
+                        return (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${active ? 'bg-primary text-ohmai-charcoal' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                {tab.label}
+                                <span className={`ml-2 inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[10px] ${active ? 'bg-ohmai-charcoal/20 text-ohmai-charcoal' : 'bg-white/10 text-slate-400'}`}>
+                                    {counts[tab.key] ?? 0}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search name, location, organizer..."
+                        className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+                    />
+                </div>
+            </div>
+
             {loading ? (
                 <div className="text-white text-center py-12">Loading...</div>
             ) : (
                 <div className="bg-white/5 shadow-xl overflow-hidden rounded-2xl border border-white/10">
-                    <ul className="divide-y divide-white/10">
-                        {events.map((event) => (
-                            <li key={event.id} className="p-4 hover:bg-white/5 transition-colors flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white">{event.name}</h3>
-                                    <div className="flex items-center space-x-4 text-sm text-slate-400 mt-1">
-                                        <div className="flex items-center gap-1">
-                                            <span>{new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    {visibleEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">
+                            {searchQuery
+                                ? `No events match "${searchQuery}"`
+                                : activeTab === 'Upcoming'
+                                    ? 'No upcoming events. Add one to get started.'
+                                    : 'No past events.'}
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-white/10">
+                            {visibleEvents.map((event) => {
+                                const ts = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').getTime();
+                                const isPast = ts < Date.now();
+                                return (
+                                    <li key={event.id} className="p-4 hover:bg-white/5 transition-colors flex justify-between items-center">
+                                        <div>
+                                            <h3 className={`text-lg font-bold ${isPast ? 'text-slate-300' : 'text-white'}`}>{event.name}</h3>
+                                            <div className="flex items-center space-x-4 text-sm text-slate-400 mt-1">
+                                                <div className="flex items-center gap-1">
+                                                    <span>{new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                </div>
+                                                <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-full ${event.status === 'Upcoming' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white/10 text-slate-400 border border-white/10'}`}>
+                                                    {event.status}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-full ${event.status === 'Upcoming' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white/10 text-slate-400 border border-white/10'}`}>
-                                            {event.status}
-                                        </span>
-                                    </div>
-                                </div>
 
-                                <div className="flex items-center space-x-4">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleHighlight(event);
-                                        }}
-                                        className={`p-2 rounded-lg transition-all ${event.is_highlight ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-slate-600 hover:text-yellow-400 hover:bg-white/5'} ${updating === event.id ? 'opacity-50 cursor-wait scale-90' : ''}`}
-                                        title={event.is_highlight ? "Remove from Highlights" : "Add to Highlights"}
-                                        disabled={updating === event.id}
-                                    >
-                                        <Star className={`h-5 w-5 ${event.is_highlight ? 'fill-yellow-400' : ''} ${updating === event.id ? 'animate-pulse' : ''}`} />
-                                    </button>
-                                    <Link
-                                        to={`/admin/events/${event.id}/assignments`}
-                                        className="text-sm font-medium text-slate-400 hover:text-primary transition-colors"
-                                    >
-                                        Assignments
-                                    </Link>
-                                    <div className="flex items-center gap-2 pl-4 border-l border-white/10">
-                                        <Link
-                                            to={`/admin/events/edit/${event.id}`}
-                                            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Link>
-                                        <button
-                                            onClick={() => handleDelete(event.id)}
-                                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors"
-                                        >
-                                            <Trash className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                                        <div className="flex items-center space-x-4">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleHighlight(event);
+                                                }}
+                                                className={`p-2 rounded-lg transition-all ${event.is_highlight ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-slate-600 hover:text-yellow-400 hover:bg-white/5'} ${updating === event.id ? 'opacity-50 cursor-wait scale-90' : ''}`}
+                                                title={event.is_highlight ? "Remove from Highlights" : "Add to Highlights"}
+                                                disabled={updating === event.id}
+                                            >
+                                                <Star className={`h-5 w-5 ${event.is_highlight ? 'fill-yellow-400' : ''} ${updating === event.id ? 'animate-pulse' : ''}`} />
+                                            </button>
+                                            <Link
+                                                to={`/admin/events/${event.id}/assignments`}
+                                                className="text-sm font-medium text-slate-400 hover:text-primary transition-colors"
+                                            >
+                                                Assignments
+                                            </Link>
+                                            <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+                                                <Link
+                                                    to={`/admin/events/edit/${event.id}`}
+                                                    className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Link>
+                                                <button
+                                                    onClick={() => handleDelete(event.id)}
+                                                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors"
+                                                >
+                                                    <Trash className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
                 </div>
             )}
         </div >
