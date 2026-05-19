@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ArrowRight, Camera, Calendar, MapPin, Sparkles } from 'lucide-react';
+import { Search, ArrowRight, Camera, Calendar, MapPin, Sparkles, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 import EventCarousel from '../components/EventCarousel';
@@ -14,7 +14,9 @@ export default function Home() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        api.get('/events?status=Upcoming&limit=3')
+        // Pull more upcoming events so we can split them into
+        // "This Week" (≤7 days away) and the regular Upcoming row.
+        api.get('/events?status=Upcoming&limit=20')
             .then(res => setUpcomingEvents(res.data))
             .catch(err => console.error(err));
 
@@ -31,6 +33,34 @@ export default function Home() {
             })
             .catch(err => console.error(err));
     }, []);
+
+    // Auto-curated "This Week's Races" — events with date in the next
+    // 7 days. No admin work needed; updates itself daily.
+    const { thisWeekEvents, laterUpcoming } = useMemo(() => {
+        const now = new Date();
+        const cutoff = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const thisWeek = [];
+        const later = [];
+        for (const ev of upcomingEvents) {
+            const d = ev.date ? new Date(ev.date) : null;
+            if (d && d <= cutoff) thisWeek.push(ev);
+            else later.push(ev);
+        }
+        return { thisWeekEvents: thisWeek, laterUpcoming: later.slice(0, 3) };
+    }, [upcomingEvents]);
+
+    // Friendly countdown label — "Esok", "3 hari lagi", "Hari ini"
+    const daysFromNow = (dateStr) => {
+        if (!dateStr) return null;
+        const target = new Date(dateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        target.setHours(0, 0, 0, 0);
+        const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        if (diff <= 0) return 'Hari ini';
+        if (diff === 1) return 'Esok';
+        return `${diff} hari lagi`;
+    };
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -131,6 +161,43 @@ export default function Home() {
                 </section>
             )}
 
+            {/* This Week's Races — auto-curated, ≤7 days away */}
+            {thisWeekEvents.length > 0 && (
+                <motion.section
+                    variants={containerVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                >
+                    <div className="flex items-end justify-between mb-10">
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                                <Flame className="w-3.5 h-3.5" />
+                                Minggu Ni
+                            </div>
+                            <h2 className="text-3xl font-display font-black text-white tracking-tight italic uppercase">This Week's Races</h2>
+                            <p className="text-slate-400 font-medium">Acara dalam 7 hari akan datang.</p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-8 md:grid-cols-3">
+                        {thisWeekEvents.slice(0, 6).map(event => {
+                            const countdown = daysFromNow(event.date);
+                            return (
+                                <motion.div key={event.id} variants={itemVariants} className="relative">
+                                    {countdown && (
+                                        <div className="absolute -top-3 -right-3 z-10 px-3 py-1.5 rounded-full bg-primary text-ohmai-charcoal text-xs font-black uppercase tracking-wide shadow-lg shadow-primary/30">
+                                            {countdown}
+                                        </div>
+                                    )}
+                                    <EventCard event={event} />
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                </motion.section>
+            )}
+
             {/* Upcoming Events */}
             <motion.section
                 variants={containerVariants}
@@ -149,12 +216,12 @@ export default function Home() {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-3">
-                    {upcomingEvents.map(event => (
+                    {laterUpcoming.map(event => (
                         <motion.div key={event.id} variants={itemVariants}>
                             <EventCard event={event} />
                         </motion.div>
                     ))}
-                    {upcomingEvents.length === 0 && (
+                    {laterUpcoming.length === 0 && thisWeekEvents.length === 0 && (
                         <div className="col-span-full py-20 text-center glass-card bg-slate-50/50">
                             <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                             <p className="text-slate-500 font-bold">No upcoming events scheduled yet.</p>
