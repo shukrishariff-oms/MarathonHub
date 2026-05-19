@@ -62,9 +62,15 @@ export default function AdminAnalytics() {
                         <h1 className="text-3xl font-bold text-white">Analytics</h1>
                         <p className="text-slate-400 mt-1">Real-time traffic overview</p>
                     </div>
-                    <div className="text-right">
-                        <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Lifetime Views</p>
-                        <p className="text-4xl font-black text-primary">{stats.total_views.toLocaleString()}</p>
+                    <div className="text-right flex items-end gap-6">
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Views</p>
+                            <p className="text-4xl font-black text-primary">{stats.total_views.toLocaleString()}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Unique Visitors</p>
+                            <p className="text-4xl font-black text-white">{(stats.unique_visitors ?? 0).toLocaleString()}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -129,8 +135,11 @@ export default function AdminAnalytics() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-bold text-white">{event.views}</p>
-                                    <p className="text-xs text-slate-500">views</p>
+                                    <p className="font-bold text-white">{event.views.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500">
+                                        views <span className="text-slate-600">·</span>{' '}
+                                        <span className="text-slate-300">{(event.unique_visitors ?? 0).toLocaleString()}</span> unique
+                                    </p>
                                 </div>
                             </Link>
                         ))}
@@ -157,8 +166,11 @@ export default function AdminAnalytics() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-bold text-white">{photog.views}</p>
-                                    <p className="text-xs text-slate-500">views</p>
+                                    <p className="font-bold text-white">{photog.views.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500">
+                                        views <span className="text-slate-600">·</span>{' '}
+                                        <span className="text-slate-300">{(photog.unique_visitors ?? 0).toLocaleString()}</span> unique
+                                    </p>
                                 </div>
                             </div>
                         ))}
