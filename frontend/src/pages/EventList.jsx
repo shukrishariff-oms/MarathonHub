@@ -155,10 +155,10 @@ export default function EventList() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20"
                     >
                         <div className="flex items-center gap-2 text-sm font-bold text-primary">
-                            <CalendarIcon className="w-4 h-4" />
+                            <CalendarIcon className="w-4 h-4 flex-shrink-0" />
                             <span>
                                 Menunjukkan acara untuk{' '}
                                 {(() => {
@@ -172,7 +172,7 @@ export default function EventList() {
                         <button
                             type="button"
                             onClick={() => applyMonthFilter('')}
-                            className="flex items-center gap-1 text-xs font-bold text-primary hover:text-white transition-colors"
+                            className="flex items-center justify-center gap-1 text-xs font-bold text-primary hover:text-white px-3 py-2 min-h-[36px] rounded-lg bg-white/5 hover:bg-primary/20 transition-colors active:scale-95 self-start sm:self-auto"
                         >
                             <X className="w-3.5 h-3.5" />
                             Clear
@@ -230,7 +230,7 @@ export default function EventList() {
                                                 type="button"
                                                 onClick={() => applyMonthFilter(isActive ? '' : groupKey)}
                                                 title={isActive ? 'Tunjuk semua bulan' : `Tapis ${group.monthName} sahaja`}
-                                                className={`text-sm font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                                                className={`text-sm font-bold px-4 py-2 min-h-[40px] rounded-full transition-all cursor-pointer active:scale-95 ${
                                                     isActive
                                                         ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
                                                         : 'text-slate-500 bg-white/5 hover:bg-primary/20 hover:text-primary'
