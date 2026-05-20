@@ -1,15 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal, X, Footprints } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
 import EventCard from '../components/EventCard';
+import { safeParse } from '../utils/safeJson';
+
+// Normalize distance labels to canonical KM values for filtering.
+// Admin-entered strings vary ("Full Marathon", "42KM", "42 km") — match all.
+const DISTANCE_OPTIONS = [
+    { key: '42KM', label: '42KM', aliases: ['42km', '42 km', 'full marathon', 'fm', '42'] },
+    { key: '21KM', label: '21KM', aliases: ['21km', '21 km', 'half marathon', 'hm', '21'] },
+    { key: '10KM', label: '10KM', aliases: ['10km', '10 km', '10'] },
+    { key: '5KM', label: '5KM', aliases: ['5km', '5 km', '5'] },
+];
+
+function eventHasDistance(event, distanceKey) {
+    const distances = safeParse(event.distances_json, []);
+    if (!distances.length) return false;
+    const opt = DISTANCE_OPTIONS.find(o => o.key === distanceKey);
+    if (!opt) return false;
+    const needle = [opt.key.toLowerCase(), ...opt.aliases];
+    return distances.some(d => {
+        const norm = String(d).trim().toLowerCase();
+        return needle.some(n => norm === n || norm.includes(n));
+    });
+}
 
 export default function EventList() {
     const [events, setEvents] = useState([]);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('All');
     const [monthFilter, setMonthFilter] = useState(''); // e.g. '2026-05'
+    const [distanceFilter, setDistanceFilter] = useState(''); // e.g. '42KM'
     const [loading, setLoading] = useState(true);
     const location = useLocation();
     const navigate = useNavigate();
@@ -19,10 +42,12 @@ export default function EventList() {
         const initialSearch = queryParams.get('search') || '';
         const initialStatus = queryParams.get('status') || 'All';
         const initialMonth = queryParams.get('month') || '';
+        const initialDistance = queryParams.get('distance') || '';
 
         setSearch(initialSearch);
         setStatus(initialStatus);
         setMonthFilter(initialMonth);
+        setDistanceFilter(initialDistance);
     }, [location.search]);
 
     // Helper: update URL when month filter changes (keeps filter shareable)
@@ -30,6 +55,13 @@ export default function EventList() {
         const params = new URLSearchParams(location.search);
         if (monthKey) params.set('month', monthKey);
         else params.delete('month');
+        navigate(`/events?${params.toString()}`, { replace: false });
+    };
+
+    const applyDistanceFilter = (distKey) => {
+        const params = new URLSearchParams(location.search);
+        if (distKey) params.set('distance', distKey);
+        else params.delete('distance');
         navigate(`/events?${params.toString()}`, { replace: false });
     };
 
@@ -77,7 +109,10 @@ export default function EventList() {
         return Object.values(grouped).sort((a, b) => a.date - b.date);
     };
 
-    const allGroupedEvents = groupEventsByMonth(events);
+    const distanceFiltered = distanceFilter
+        ? events.filter(e => eventHasDistance(e, distanceFilter))
+        : events;
+    const allGroupedEvents = groupEventsByMonth(distanceFiltered);
     // If a month filter is set, only show that month's group
     const groupedEvents = monthFilter
         ? allGroupedEvents.filter(g => {
@@ -146,6 +181,46 @@ export default function EventList() {
                         </select>
                     </div>
                 </div>
+            </motion.div>
+
+            {/* Distance Filter Chips */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="flex flex-wrap items-center gap-2"
+            >
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mr-1">
+                    <Footprints className="w-3.5 h-3.5" />
+                    Jarak
+                </div>
+                {DISTANCE_OPTIONS.map(opt => {
+                    const isActive = distanceFilter === opt.key;
+                    return (
+                        <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => applyDistanceFilter(isActive ? '' : opt.key)}
+                            className={`px-4 py-2 min-h-[40px] rounded-full text-sm font-bold transition-all active:scale-95 ${
+                                isActive
+                                    ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
+                                    : 'bg-white/5 text-slate-300 hover:bg-primary/20 hover:text-primary border border-white/5'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    );
+                })}
+                {distanceFilter && (
+                    <button
+                        type="button"
+                        onClick={() => applyDistanceFilter('')}
+                        className="flex items-center gap-1 px-3 py-2 min-h-[36px] rounded-full text-xs font-bold text-slate-400 hover:text-white transition-colors active:scale-95"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                        Reset
+                    </button>
+                )}
             </motion.div>
 
             {/* Active Month Filter Banner */}
