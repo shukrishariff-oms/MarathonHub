@@ -66,7 +66,7 @@ def get_event(db: Session, event_id: int):
     return db.query(models.Event).filter(models.Event.id == event_id).first()
 
 def create_event(db: Session, event: schemas.EventCreate):
-    db_event = models.Event(**event.dict())
+    db_event = models.Event(**event.model_dump())
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
@@ -75,7 +75,7 @@ def create_event(db: Session, event: schemas.EventCreate):
 def update_event(db: Session, event_id: int, event: schemas.EventUpdate):
     db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if db_event:
-        for key, value in event.dict().items():
+        for key, value in event.model_dump().items():
             setattr(db_event, key, value)
         db.commit()
         db.refresh(db_event)
@@ -101,7 +101,7 @@ def get_photographer(db: Session, photographer_id: int):
     return db.query(models.Photographer).filter(models.Photographer.id == photographer_id).first()
 
 def create_photographer(db: Session, photographer: schemas.PhotographerCreate):
-    db_photographer = models.Photographer(**photographer.dict())
+    db_photographer = models.Photographer(**photographer.model_dump())
     db.add(db_photographer)
     db.commit()
     db.refresh(db_photographer)
@@ -110,7 +110,7 @@ def create_photographer(db: Session, photographer: schemas.PhotographerCreate):
 def update_photographer(db: Session, photographer_id: int, photographer: schemas.PhotographerUpdate):
     db_photographer = db.query(models.Photographer).filter(models.Photographer.id == photographer_id).first()
     if db_photographer:
-        for key, value in photographer.dict().items():
+        for key, value in photographer.model_dump().items():
             setattr(db_photographer, key, value)
         db.commit()
         db.refresh(db_photographer)
@@ -125,7 +125,7 @@ def delete_photographer(db: Session, photographer_id: int):
 
 # Assignments
 def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
-    db_assignment = models.Assignment(**assignment.dict())
+    db_assignment = models.Assignment(**assignment.model_dump())
     db.add(db_assignment)
     db.commit()
     db.refresh(db_assignment)
@@ -134,7 +134,7 @@ def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
 def update_assignment(db: Session, assignment_id: int, assignment: schemas.AssignmentUpdate):
     db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
     if db_assignment:
-        for key, value in assignment.dict().items():
+        for key, value in assignment.model_dump().items():
             setattr(db_assignment, key, value)
         db.commit()
         db.refresh(db_assignment)

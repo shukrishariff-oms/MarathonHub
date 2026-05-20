@@ -85,6 +85,20 @@ def check_and_migrate_db():
                     conn.execute(text("CREATE INDEX ix_page_views_event_id ON page_views (event_id)"))
                     conn.commit()
                     print("Migration successful.")
+
+            # Composite index for analytics hot path:
+            # SELECT ... WHERE entity_type = ? AND entity_id = ?
+            # Already covered by two single-column indexes, but a combined
+            # index lets SQLite skip a second filter pass — meaningful at
+            # ~70k rows and growing.
+            existing_indexes = {idx['name'] for idx in inspector.get_indexes("page_views")}
+            if "ix_pv_type_entity" not in existing_indexes:
+                print("Migrating database: Adding composite index on page_views(entity_type, entity_id)...")
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_pv_type_entity "
+                    "ON page_views (entity_type, entity_id)"
+                ))
+                conn.commit()
                     
     except Exception as e:
         print(f"Migration check failed: {e}")
@@ -96,6 +110,28 @@ app = FastAPI(title="MarathonHub API", version="0.1.0")
 # Rate limiter — applied per-route via @limiter.limit(...)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# -----------------------------------------------------------------------------
+# Health check — for uptime monitors. Lightweight: just confirm DB pings.
+# Avoids hitting `/` (full SPA shell, ~80KB) every minute.
+# -----------------------------------------------------------------------------
+@app.get("/api/health", include_in_schema=False)
+def health_check():
+    db_ok = False
+    try:
+        from sqlalchemy import text as _sql_text
+        with database.engine.connect() as conn:
+            conn.execute(_sql_text("SELECT 1"))
+        db_ok = True
+    except Exception as e:
+        logger.warning("health: db check failed: %s", e)
+    status_code = 200 if db_ok else 503
+    return Response(
+        content=f'{{"ok":{str(db_ok).lower()},"db":"{"ok" if db_ok else "fail"}"}}',
+        media_type="application/json",
+        status_code=status_code,
+    )
 
 # Mount 'uploads' directory to serve images
 # (BASE_DIR resolved at top of file)
@@ -169,6 +205,30 @@ async def security_and_cache_headers(request: Request, call_next):
     response.headers.setdefault(
         "Permissions-Policy",
         "geolocation=(), microphone=(), camera=(), payment=()",
+    )
+
+    # Content-Security-Policy — restrict where assets/scripts can come from.
+    # Tight defaults for an SPA that only loads its own bundles + a couple
+    # of analytics/social images. Adjust if a third-party widget is added.
+    #   - script-src: self only (no inline scripts; JSON-LD <script> tags
+    #     are application/ld+json which CSP exempts)
+    #   - style-src: 'unsafe-inline' for Tailwind's runtime + inline style
+    #     attributes from framer-motion. Move to nonces if hardening later.
+    #   - img-src: self, data: (logos), blob: (canvas exports), https:
+    #     (photographer logos / external galleries hotlinked in cards)
+    #   - connect-src: self only — API + tracking are same-origin
+    #   - frame-ancestors none — defense-in-depth on top of X-Frame-Options
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'",
     )
 
     # Cache-Control by path. StaticFiles doesn't set this by default.
@@ -348,7 +408,8 @@ def read_photographer(photographer_id: int, db: Session = Depends(get_db)):
 # --- Admin Auth ---
 
 @app.post("/api/admin/login", response_model=schemas.Token)
-def login_for_access_token(form_data: schemas.AdminLogin, db: Session = Depends(get_db)):
+@limiter.limit(os.getenv("LOGIN_RATE_LIMIT", "5/minute"))
+def login_for_access_token(request: Request, form_data: schemas.AdminLogin, db: Session = Depends(get_db)):
     # Note: OAuth2PasswordRequestForm expects username/password fields. 
     # But UI might send JSON. For simplicity we used a custom AdminLogin schema.
     # If we use OAuth2PasswordRequestForm (standard FastAPI auth), we need form data.
