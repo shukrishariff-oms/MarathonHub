@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
 import EventCard from '../components/EventCard';
@@ -9,17 +9,29 @@ export default function EventList() {
     const [events, setEvents] = useState([]);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('All');
+    const [monthFilter, setMonthFilter] = useState(''); // e.g. '2026-05'
     const [loading, setLoading] = useState(true);
     const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         const initialSearch = queryParams.get('search') || '';
         const initialStatus = queryParams.get('status') || 'All';
+        const initialMonth = queryParams.get('month') || '';
 
         setSearch(initialSearch);
         setStatus(initialStatus);
+        setMonthFilter(initialMonth);
     }, [location.search]);
+
+    // Helper: update URL when month filter changes (keeps filter shareable)
+    const applyMonthFilter = (monthKey) => {
+        const params = new URLSearchParams(location.search);
+        if (monthKey) params.set('month', monthKey);
+        else params.delete('month');
+        navigate(`/events?${params.toString()}`, { replace: false });
+    };
 
     useEffect(() => {
         fetchEvents();
@@ -65,7 +77,14 @@ export default function EventList() {
         return Object.values(grouped).sort((a, b) => a.date - b.date);
     };
 
-    const groupedEvents = groupEventsByMonth(events);
+    const allGroupedEvents = groupEventsByMonth(events);
+    // If a month filter is set, only show that month's group
+    const groupedEvents = monthFilter
+        ? allGroupedEvents.filter(g => {
+            const key = `${g.date.getFullYear()}-${String(g.date.getMonth() + 1).padStart(2, '0')}`;
+            return key === monthFilter;
+        })
+        : allGroupedEvents;
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -129,6 +148,39 @@ export default function EventList() {
                 </div>
             </motion.div>
 
+            {/* Active Month Filter Banner */}
+            <AnimatePresence>
+                {monthFilter && !loading && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20"
+                    >
+                        <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                            <CalendarIcon className="w-4 h-4" />
+                            <span>
+                                Menunjukkan acara untuk{' '}
+                                {(() => {
+                                    const [y, m] = monthFilter.split('-');
+                                    const d = new Date(Number(y), Number(m) - 1, 1);
+                                    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                })()}{' '}
+                                sahaja
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => applyMonthFilter('')}
+                            className="flex items-center gap-1 text-xs font-bold text-primary hover:text-white transition-colors"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Clear
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Events Grouped by Month */}
             <AnimatePresence mode="wait">
                 {loading ? (
@@ -170,9 +222,24 @@ export default function EventList() {
                                         </h2>
                                     </div>
                                     <div className="flex-grow h-px bg-gradient-to-r from-white/10 to-transparent" />
-                                    <span className="text-sm font-bold text-slate-500 bg-white/5 px-3 py-1 rounded-full">
-                                        {group.events.length} {group.events.length === 1 ? 'event' : 'events'}
-                                    </span>
+                                    {(() => {
+                                        const groupKey = `${group.date.getFullYear()}-${String(group.date.getMonth() + 1).padStart(2, '0')}`;
+                                        const isActive = monthFilter === groupKey;
+                                        return (
+                                            <button
+                                                type="button"
+                                                onClick={() => applyMonthFilter(isActive ? '' : groupKey)}
+                                                title={isActive ? 'Tunjuk semua bulan' : `Tapis ${group.monthName} sahaja`}
+                                                className={`text-sm font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                                                    isActive
+                                                        ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
+                                                        : 'text-slate-500 bg-white/5 hover:bg-primary/20 hover:text-primary'
+                                                }`}
+                                            >
+                                                {group.events.length} {group.events.length === 1 ? 'event' : 'events'}
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Events Grid for this month */}
