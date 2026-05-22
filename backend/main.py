@@ -664,13 +664,15 @@ async def face_search(
             if isinstance(m, dict):
                 guid = m.get("guid")
                 score = m.get("matchScore") or m.get("score")
+                thumb = m.get("thumbnailUrl") or m.get("thumbnail_url")
             elif isinstance(m, str):
                 guid = m
                 score = None
+                thumb = None
             else:
                 continue
             if guid:
-                slim.append({"guid": guid, "score": score})
+                slim.append({"guid": guid, "score": score, "thumbnail_url": thumb})
         total_matches += len(slim)
         results.append({
             "assignment_id": a.id,
