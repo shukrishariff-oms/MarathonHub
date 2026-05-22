@@ -1,0 +1,392 @@
+import { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, Loader2, ScanFace, ExternalLink, AlertCircle, Sparkles, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../api';
+
+/**
+ * FaceSearchPanel — runner upload selfie, kita fan-out search ke semua
+ * photographer assigned ke event ni, return matches per photographer.
+ *
+ * Kenapa client-side compress: Photohawk cap selfie ~10MB, tapi browser
+ * upload selfie modern (12MP HEIC dari iPhone) selalu 5-8MB. Compress
+ * sebelum upload kurangkan latency (3G/5G upload slow) + jamin under cap.
+ *
+ * UX flow:
+ *   1. Drop/pilih selfie → preview
+ *   2. Click "Cari Gambar Kau" → upload + spinner
+ *   3. Result: photographer cards w/ match count, deep-link ke gallery
+ */
+
+const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const MAX_DIMENSION = 1280;
+const COMPRESS_QUALITY = 0.85;
+
+/**
+ * Compress + resize selfie to keep upload payload under Photohawk's cap.
+ * iPhone HEIC won't decode in <canvas> — for those, just send raw.
+ * Other formats get downsized to 1280px longest side at 85% JPEG quality.
+ */
+async function compressImage(file) {
+    if (file.type === 'image/heic' || file.type === 'image/heif') {
+        return file;
+    }
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.onerror = reject;
+        img.onerror = reject;
+        img.onload = () => {
+            try {
+                let { width, height } = img;
+                if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+                    if (width > height) {
+                        height = Math.round(height * (MAX_DIMENSION / width));
+                        width = MAX_DIMENSION;
+                    } else {
+                        width = Math.round(width * (MAX_DIMENSION / height));
+                        height = MAX_DIMENSION;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+                        resolve(new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
+                    },
+                    'image/jpeg',
+                    COMPRESS_QUALITY,
+                );
+            } catch (err) {
+                console.warn('Compress failed, sending raw:', err);
+                resolve(file);
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+export default function FaceSearchPanel({ event, assignments }) {
+    const [file, setFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [dragging, setDragging] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [results, setResults] = useState(null);
+    const [error, setError] = useState(null);
+    const inputRef = useRef(null);
+
+    // Cleanup object URL when preview changes / unmount
+    useEffect(() => {
+        return () => {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+        };
+    }, [previewUrl]);
+
+    // Hide entirely if there's nothing searchable for this event.
+    if (!assignments || assignments.length === 0) return null;
+
+    const reset = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setFile(null);
+        setPreviewUrl(null);
+        setResults(null);
+        setError(null);
+    };
+
+    const pickFile = (f) => {
+        if (!f) return;
+        if (!ACCEPTED_TYPES.includes(f.type) && !f.type.startsWith('image/')) {
+            setError('Format gambar tak disokong. Cuba JPG, PNG, atau WEBP.');
+            return;
+        }
+        // 20MB hard cap before compression
+        if (f.size > 20 * 1024 * 1024) {
+            setError('Saiz gambar terlalu besar (max 20MB). Pilih yang lain.');
+            return;
+        }
+        setError(null);
+        setResults(null);
+        setFile(f);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(URL.createObjectURL(f));
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setDragging(false);
+        pickFile(e.dataTransfer.files?.[0]);
+    };
+
+    const handleSearch = async () => {
+        if (!file || busy) return;
+        setBusy(true);
+        setError(null);
+        setResults(null);
+        try {
+            const compressed = await compressImage(file);
+            const fd = new FormData();
+            fd.append('selfie', compressed);
+            const res = await api.post(`/events/${event.id}/face-search`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 60000,
+            });
+            setResults(res.data);
+        } catch (err) {
+            console.error('Face search failed:', err);
+            const detail = err?.response?.data?.detail;
+            setError(detail || 'Tak dapat search sekarang. Cuba lagi sebentar.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const totalMatches = results?.total_matches ?? 0;
+    const photographersWithMatches = results?.results?.filter(r => r.match_count > 0) ?? [];
+
+    return (
+        <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/[0.06] via-ohmai-charcoal to-ohmai-charcoal"
+        >
+            <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-accent/10 rounded-full blur-[100px] pointer-events-none" />
+
+            <div className="relative z-10 p-6 md:p-10 space-y-6">
+                {/* Header */}
+                <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                        <ScanFace className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tighter italic uppercase">
+                                Cari Gambar Kau
+                            </h2>
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-primary">
+                                Beta
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-400 font-medium">
+                            Upload selfie sekali, kami scan {assignments.length} photographer event ni, terus tahu siapa ada gambar kau.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Upload zone OR preview */}
+                {!previewUrl && (
+                    <div
+                        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={handleDrop}
+                        onClick={() => inputRef.current?.click()}
+                        className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all p-8 md:p-12 text-center ${
+                            dragging
+                                ? 'border-primary bg-primary/5'
+                                : 'border-white/10 hover:border-primary/40 bg-white/[0.02]'
+                        }`}
+                    >
+                        <input
+                            ref={inputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => pickFile(e.target.files?.[0])}
+                        />
+                        <Camera className="w-12 h-12 text-primary/60 mx-auto mb-4" />
+                        <p className="text-white font-bold text-base mb-1">
+                            Pilih atau seret selfie kau ke sini
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium">
+                            JPG, PNG, atau WEBP — sampai 20MB. Gambar tak disimpan.
+                        </p>
+                    </div>
+                )}
+
+                {previewUrl && (
+                    <div className="flex flex-col sm:flex-row gap-4 items-center bg-white/[0.02] border border-white/10 rounded-2xl p-4">
+                        <img
+                            src={previewUrl}
+                            alt="Selfie preview"
+                            className="w-24 h-24 rounded-xl object-cover border-2 border-primary/30"
+                        />
+                        <div className="flex-1 text-center sm:text-left">
+                            <p className="text-white font-bold text-sm mb-1">
+                                Selfie ready
+                            </p>
+                            <p className="text-xs text-slate-500 font-medium">
+                                {file && (file.size / 1024 / 1024).toFixed(2)} MB · auto-compress sebelum upload
+                            </p>
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={reset}
+                                disabled={busy}
+                                className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 font-bold text-xs hover:bg-white/10 transition-colors disabled:opacity-40"
+                            >
+                                Tukar
+                            </button>
+                            <button
+                                onClick={handleSearch}
+                                disabled={busy}
+                                className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-primary text-ohmai-charcoal font-black text-xs uppercase tracking-widest flex items-center gap-2 justify-center hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {busy ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Mencari...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4" />
+                                        Cari Sekarang
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error */}
+                {error && (
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm font-medium">{error}</p>
+                    </div>
+                )}
+
+                {/* Results */}
+                <AnimatePresence>
+                    {results && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="space-y-4"
+                        >
+                            <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/5">
+                                <p className="text-sm text-slate-300 font-medium">
+                                    {totalMatches > 0 ? (
+                                        <>
+                                            <span className="text-primary font-black">{totalMatches}</span> gambar match dari{' '}
+                                            <span className="text-primary font-black">{photographersWithMatches.length}</span> photographer
+                                        </>
+                                    ) : (
+                                        <span className="text-slate-400">Tak jumpa match. Cuba selfie yang clear / muka penuh.</span>
+                                    )}
+                                </p>
+                                {totalMatches > 0 && (
+                                    <button
+                                        onClick={reset}
+                                        className="text-xs text-slate-400 hover:text-primary font-bold flex items-center gap-1"
+                                    >
+                                        <X className="w-3 h-3" /> Cari semula
+                                    </button>
+                                )}
+                            </div>
+
+                            {photographersWithMatches.length > 0 && (
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    {photographersWithMatches.map((r) => {
+                                        const guids = (r.matches || []).map(m => m.guid).filter(Boolean);
+                                        const deepLink = guids.length
+                                            ? `${r.gallery_url}?guids=${guids.slice(0, 20).join(',')}`
+                                            : r.gallery_url;
+                                        return (
+                                            <a
+                                                key={r.assignment_id}
+                                                href={deepLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => {
+                                                    api.post('/track', {
+                                                        path: deepLink,
+                                                        entity_type: 'photographer',
+                                                        entity_id: r.photographer.id,
+                                                        event_id: event.id,
+                                                    }).catch(() => {});
+                                                }}
+                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/40 hover:bg-white/[0.05] transition-all"
+                                            >
+                                                {r.photographer.logo_url ? (
+                                                    <img
+                                                        src={r.photographer.logo_url}
+                                                        alt={r.photographer.name}
+                                                        className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                        <Camera className="w-5 h-5 text-primary/60" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-black text-sm uppercase italic truncate">
+                                                        {r.photographer.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-primary font-bold uppercase tracking-widest">
+                                                        {r.match_count} gambar match
+                                                    </p>
+                                                </div>
+                                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Photographers with zero matches — show muted so runner
+                                tau dia dah scan semua, takde tertinggal. */}
+                            {results.results?.length > photographersWithMatches.length && (
+                                <details className="group">
+                                    <summary className="text-xs text-slate-500 hover:text-slate-300 font-bold cursor-pointer list-none flex items-center gap-2">
+                                        <span className="group-open:rotate-90 transition-transform">▶</span>
+                                        Photographer takde match ({results.results.length - photographersWithMatches.length})
+                                    </summary>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {results.results
+                                            .filter(r => r.match_count === 0)
+                                            .map(r => (
+                                                <span
+                                                    key={r.assignment_id}
+                                                    className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-500 font-medium"
+                                                >
+                                                    {r.photographer.name}
+                                                </span>
+                                            ))}
+                                    </div>
+                                </details>
+                            )}
+
+                            {/* Resolver / per-engine errors — surfaced quietly so
+                                we don't alarm runners over a single broken gallery. */}
+                            {results.errors?.length > 0 && (
+                                <details className="group">
+                                    <summary className="text-xs text-amber-400/70 hover:text-amber-300 font-bold cursor-pointer list-none flex items-center gap-2">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {results.errors.length} amaran teknikal
+                                    </summary>
+                                    <ul className="mt-2 space-y-1 text-[11px] text-amber-200/60 font-mono">
+                                        {results.errors.slice(0, 5).map((e, i) => (
+                                            <li key={i}>· {e}</li>
+                                        ))}
+                                    </ul>
+                                </details>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <p className="text-[10px] text-slate-600 font-medium text-center pt-2">
+                    Privasi: selfie kau tak disimpan kat MarathonHub. Kami hantar terus ke engine search photographer untuk match je.
+                </p>
+            </div>
+        </motion.section>
+    );
+}

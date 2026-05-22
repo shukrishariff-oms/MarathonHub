@@ -4,6 +4,7 @@ import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User
 import { motion } from 'framer-motion';
 import api from '../api';
 import { safeParse } from '../utils/safeJson';
+import FaceSearchPanel from '../components/FaceSearchPanel';
 
 export default function EventDetail() {
     const { id } = useParams();
@@ -296,6 +297,10 @@ export default function EventDetail() {
                     </div>
                 </div>
             </motion.section>
+
+            {/* Face Search — appears right under hero, above description.
+                Component handles its own visibility (hides if no assignments). */}
+            <FaceSearchPanel event={event} assignments={assignments} />
 
             {/* Description */}
             <section className="grid md:grid-cols-3 gap-12 items-start">
