@@ -656,14 +656,21 @@ async def face_search(
         # Trim match payload to what the UI actually needs (Photohawk
         # returns extra signed-URL fields per hit, which we hide — runner
         # has to click through to the gallery to view full photos).
-        slim = [
-            {
-                "guid": m.get("guid"),
-                "score": m.get("matchScore") or m.get("score"),
-            }
-            for m in matches
-            if m.get("guid")
-        ]
+        # Defensive: Photohawk's actual response shape varies — some
+        # tenants return a list of dicts ({guid, matchScore}), others
+        # return a flat list of GUID strings. Handle both.
+        slim = []
+        for m in matches:
+            if isinstance(m, dict):
+                guid = m.get("guid")
+                score = m.get("matchScore") or m.get("score")
+            elif isinstance(m, str):
+                guid = m
+                score = None
+            else:
+                continue
+            if guid:
+                slim.append({"guid": guid, "score": score})
         total_matches += len(slim)
         results.append({
             "assignment_id": a.id,
