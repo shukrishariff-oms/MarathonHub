@@ -574,25 +574,48 @@ async def face_search(
     )
 
     # Lazy-resolve any assignment that doesn't have engine_guid yet.
+    # CRITICAL: this used to be a serial loop. With 30+ photographers per
+    # event (and many on non-Photohawk platforms that we have to fail-fast
+    # on), serial resolve guaranteed Traefik 60s timeout. Two fixes:
+    #   1. Pre-filter to URLs that LOOK like Photohawk galleries (host
+    #      pattern + /galleries/ path) — drops geosnapshot, harimau.run,
+    #      house24a etc. without even fetching them.
+    #   2. Parallel-resolve the rest with a ThreadPoolExecutor so total
+    #      wall-clock = max(per-gallery), not sum.
     # We swallow per-assignment resolver errors so one broken gallery URL
     # doesn't kill the whole search — those just won't contribute matches.
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+
     resolve_errors: list[str] = []
-    for a in assignments:
-        if a.engine_guid:
-            continue
-        if not a.gallery_url:
-            continue
-        try:
-            meta = photohawk.resolve_gallery(a.gallery_url)
-            a.engine_guid = meta.engine_guid
-            a.tenant_guid = meta.tenant_guid
-            a.cover_guid = meta.cover_guid
-            a.resolved_at = _dt.utcnow()
-        except photohawk.PhotohawkError as exc:
-            resolve_errors.append(
-                f"{a.photographer.name if a.photographer else 'photographer'}: {exc}"
-            )
-    db.commit()
+    to_resolve = [
+        a for a in assignments
+        if not a.engine_guid
+        and a.gallery_url
+        and photohawk.is_photohawk_gallery_url(a.gallery_url)
+    ]
+
+    if to_resolve:
+        def _resolve_one(a):
+            try:
+                return a, photohawk.resolve_gallery(a.gallery_url), None
+            except photohawk.PhotohawkError as exc:
+                return a, None, str(exc)
+
+        # 12 workers handles ~30-photographer events comfortably; each
+        # call is now capped at 10s in photohawk.py so worst case ≈ 10s
+        # total even if every gallery times out.
+        with _TPE(max_workers=12) as ex:
+            for a, meta, err in ex.map(_resolve_one, to_resolve):
+                if err:
+                    resolve_errors.append(
+                        f"{a.photographer.name if a.photographer else 'photographer'}: {err}"
+                    )
+                    continue
+                a.engine_guid = meta.engine_guid
+                a.tenant_guid = meta.tenant_guid
+                a.cover_guid = meta.cover_guid
+                a.resolved_at = _dt.utcnow()
+        db.commit()
 
     # Build fan-out list: only assignments with a resolved engine_guid.
     fanout = [

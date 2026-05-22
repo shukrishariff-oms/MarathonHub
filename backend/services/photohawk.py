@@ -25,7 +25,8 @@ from dataclasses import dataclass
 SEARCH_API = "https://search.api.photohawk.com"
 ASSETS_CDN = "https://assets.photohawk.com"
 IMGIX_CDN = "https://photohawk-prod.imgix.net"
-TIMEOUT = 30
+TIMEOUT = 10  # per-HTTP-call cap; tight enough that fan-out doesn't
+              # collectively exceed Traefik's 60s edge timeout.
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
