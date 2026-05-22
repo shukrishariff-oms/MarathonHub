@@ -76,6 +76,31 @@ def check_and_migrate_db():
                 conn.execute(text("ALTER TABLE assignments ADD COLUMN is_pinned BOOLEAN DEFAULT 0 NOT NULL"))
                 conn.commit()
 
+            # Face-search columns — lazy resolver caches Photohawk gallery
+            # metadata so we don't re-fetch for every search request.
+            for col_name, col_ddl in (
+                ("engine_guid", "ALTER TABLE assignments ADD COLUMN engine_guid VARCHAR"),
+                ("tenant_guid", "ALTER TABLE assignments ADD COLUMN tenant_guid VARCHAR"),
+                ("cover_guid",  "ALTER TABLE assignments ADD COLUMN cover_guid VARCHAR"),
+                ("resolved_at", "ALTER TABLE assignments ADD COLUMN resolved_at DATETIME"),
+            ):
+                if col_name not in assign_cols:
+                    print(f"Migrating database: Adding {col_name} column to assignments...")
+                    conn.execute(text(col_ddl))
+                    conn.commit()
+
+            # Index on engine_guid — used when reverse-mapping a Photohawk
+            # search hit (engine_guid → assignment) for the face-search
+            # results UI.
+            existing_assign_idx = {idx['name'] for idx in inspector.get_indexes("assignments")}
+            if "ix_assignments_engine_guid" not in existing_assign_idx:
+                print("Migrating database: Adding index on assignments(engine_guid)...")
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_assignments_engine_guid "
+                    "ON assignments (engine_guid)"
+                ))
+                conn.commit()
+
             # PageViews table (migration for event_id)
             if "page_views" in existing_tables:
                 pv_cols = [c['name'] for c in inspector.get_columns("page_views")]
@@ -494,6 +519,155 @@ def toggle_pin_assignment(assignment_id: int, db: Session = Depends(get_db), cur
     if db_assignment is None:
         raise HTTPException(status_code=404, detail="Assignment not found")
     return db_assignment
+
+# --- Face Search (Photohawk proxy) ---------------------------------------
+#
+# Public endpoint: runner uploads a selfie + event_id, we fan out to every
+# photographer assigned to that event, return aggregated matches grouped
+# by photographer. Photohawk's searchByImage is the actual ML engine — we
+# just resolve gallery URLs to engine_guids (lazily, cached on Assignment)
+# and proxy the call.
+#
+# Why proxy (vs frontend calling Photohawk directly):
+#   * Photohawk requires per-tenant Origin headers — browsers can't fake
+#     them. Server-side fan-out is the only way to hit cross-tenant engines.
+#   * Lets us rate-limit, log analytics, and hide gallery internals.
+
+@app.post("/api/events/{event_id}/face-search")
+@limiter.limit(os.getenv("FACE_SEARCH_RATE_LIMIT", "10/minute"))
+async def face_search(
+    event_id: int,
+    request: Request,
+    selfie: UploadFile = File(...),
+    threshold: float = Query(0.5, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime as _dt
+    from services import photohawk
+
+    event = crud.get_event(db, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    assignments = (
+        db.query(models.Assignment)
+        .filter(models.Assignment.event_id == event_id)
+        .all()
+    )
+    if not assignments:
+        return {
+            "event_id": event_id,
+            "total_matches": 0,
+            "results": [],
+            "errors": ["No photographers assigned to this event yet."],
+        }
+
+    # Read selfie once (size-bounded — Photohawk caps at ~10MB, browsers
+    # rarely upload larger; we cap at 12MB to give a small buffer).
+    raw = await selfie.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty selfie upload")
+    if len(raw) > 12 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Selfie too large (max 12MB)")
+    selfie_data_url = photohawk._selfie_to_data_url(
+        raw, content_type=selfie.content_type or "image/jpeg",
+    )
+
+    # Lazy-resolve any assignment that doesn't have engine_guid yet.
+    # We swallow per-assignment resolver errors so one broken gallery URL
+    # doesn't kill the whole search — those just won't contribute matches.
+    resolve_errors: list[str] = []
+    for a in assignments:
+        if a.engine_guid:
+            continue
+        if not a.gallery_url:
+            continue
+        try:
+            meta = photohawk.resolve_gallery(a.gallery_url)
+            a.engine_guid = meta.engine_guid
+            a.tenant_guid = meta.tenant_guid
+            a.cover_guid = meta.cover_guid
+            a.resolved_at = _dt.utcnow()
+        except photohawk.PhotohawkError as exc:
+            resolve_errors.append(
+                f"{a.photographer.name if a.photographer else 'photographer'}: {exc}"
+            )
+    db.commit()
+
+    # Build fan-out list: only assignments with a resolved engine_guid.
+    fanout = [
+        (a.engine_guid, a.gallery_url)
+        for a in assignments
+        if a.engine_guid and a.gallery_url
+    ]
+    if not fanout:
+        return {
+            "event_id": event_id,
+            "total_matches": 0,
+            "results": [],
+            "errors": resolve_errors or ["No searchable galleries for this event."],
+        }
+
+    # Run the parallel search.
+    raw_results = photohawk.fan_out_search(
+        selfie_data_url, fanout, threshold=threshold,
+    )
+
+    # Reverse-map engine_guid → assignment so we can attach photographer
+    # info to each result block.
+    by_engine = {a.engine_guid: a for a in assignments if a.engine_guid}
+
+    results = []
+    total_matches = 0
+    errors = list(resolve_errors)
+    for engine_guid, block in raw_results.items():
+        a = by_engine.get(engine_guid)
+        if not a or not a.photographer:
+            continue
+        matches = block.get("matches") or []
+        err = block.get("error")
+        if err:
+            errors.append(
+                f"{a.photographer.name}: {err}"
+            )
+        # Trim match payload to what the UI actually needs (Photohawk
+        # returns extra signed-URL fields per hit, which we hide — runner
+        # has to click through to the gallery to view full photos).
+        slim = [
+            {
+                "guid": m.get("guid"),
+                "score": m.get("matchScore") or m.get("score"),
+            }
+            for m in matches
+            if m.get("guid")
+        ]
+        total_matches += len(slim)
+        results.append({
+            "assignment_id": a.id,
+            "photographer": {
+                "id": a.photographer.id,
+                "name": a.photographer.name,
+                "brand": a.photographer.brand,
+                "logo_url": a.photographer.logo_url,
+            },
+            "gallery_url": a.gallery_url,
+            "tenant_guid": a.tenant_guid,
+            "cover_guid": a.cover_guid,
+            "match_count": len(slim),
+            "matches": slim[:50],  # cap per-photog to keep payload small
+            "error": err,
+        })
+
+    # Sort: most matches first, then alphabetical for ties.
+    results.sort(key=lambda r: (-r["match_count"], r["photographer"]["name"] or ""))
+
+    return {
+        "event_id": event_id,
+        "total_matches": total_matches,
+        "results": results,
+        "errors": errors,
+    }
+
 
 # --- Analytics Endpoints ---
 

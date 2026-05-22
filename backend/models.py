@@ -89,6 +89,15 @@ class Assignment(Base):
     is_pinned = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Face-search integration (Photohawk gallery resolver).
+    # Lazily populated the first time someone runs a face-search on the
+    # event — we don't pre-resolve every gallery_url because some galleries
+    # are slow to fetch and most assignments never get face-searched.
+    engine_guid = Column(String, nullable=True, index=True)
+    tenant_guid = Column(String, nullable=True)
+    cover_guid = Column(String, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
     event = relationship("Event", back_populates="assignments")
     photographer = relationship("Photographer", back_populates="assignments")
 
