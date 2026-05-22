@@ -539,7 +539,7 @@ async def face_search(
     event_id: int,
     request: Request,
     selfie: UploadFile = File(...),
-    threshold: float = Query(0.5, ge=0.0, le=1.0),
+    threshold: float = Query(0.7, ge=0.0, le=1.0),
     db: Session = Depends(get_db),
 ):
     from datetime import datetime as _dt
