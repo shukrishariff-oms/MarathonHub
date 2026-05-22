@@ -81,6 +81,7 @@ export default function FaceSearchPanel({ event, assignments }) {
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
     const inputRef = useRef(null);
+    const cameraRef = useRef(null);
 
     // Cleanup object URL when preview changes / unmount
     useEffect(() => {
@@ -182,31 +183,58 @@ export default function FaceSearchPanel({ event, assignments }) {
 
                 {/* Upload zone OR preview */}
                 {!previewUrl && (
-                    <div
-                        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                        onDragLeave={() => setDragging(false)}
-                        onDrop={handleDrop}
-                        onClick={() => inputRef.current?.click()}
-                        className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all p-8 md:p-12 text-center ${
-                            dragging
-                                ? 'border-primary bg-primary/5'
-                                : 'border-white/10 hover:border-primary/40 bg-white/[0.02]'
-                        }`}
-                    >
+                    <div className="space-y-3">
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                            onDragLeave={() => setDragging(false)}
+                            onDrop={handleDrop}
+                            onClick={() => inputRef.current?.click()}
+                            className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all p-6 md:p-10 text-center ${
+                                dragging
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-white/10 hover:border-primary/40 bg-white/[0.02]'
+                            }`}
+                        >
+                            <input
+                                ref={inputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => pickFile(e.target.files?.[0])}
+                            />
+                            <Upload className="w-10 h-10 text-primary/60 mx-auto mb-3" />
+                            <p className="text-white font-bold text-base mb-1">
+                                Pilih gambar dari galeri
+                            </p>
+                            <p className="text-xs text-slate-500 font-medium">
+                                JPG, PNG, atau WEBP — sampai 20MB
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-slate-500 font-bold uppercase tracking-widest">
+                            <div className="flex-1 h-px bg-white/5" />
+                            atau
+                            <div className="flex-1 h-px bg-white/5" />
+                        </div>
+
+                        {/* Camera capture — capture="user" hints front-cam on mobile.
+                            On desktop the button just falls back to a file picker. */}
+                        <button
+                            type="button"
+                            onClick={() => cameraRef.current?.click()}
+                            className="w-full py-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center justify-center gap-3 text-white font-bold text-sm"
+                        >
+                            <Camera className="w-5 h-5 text-primary" />
+                            Buka Kamera & Selfie
+                        </button>
                         <input
-                            ref={inputRef}
+                            ref={cameraRef}
                             type="file"
                             accept="image/*"
+                            capture="user"
                             className="hidden"
                             onChange={(e) => pickFile(e.target.files?.[0])}
                         />
-                        <Camera className="w-12 h-12 text-primary/60 mx-auto mb-4" />
-                        <p className="text-white font-bold text-base mb-1">
-                            Pilih atau seret selfie kau ke sini
-                        </p>
-                        <p className="text-xs text-slate-500 font-medium">
-                            JPG, PNG, atau WEBP — sampai 20MB. Gambar tak disimpan.
-                        </p>
                     </div>
                 )}
 
