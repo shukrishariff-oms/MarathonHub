@@ -66,6 +66,13 @@ def check_and_migrate_db():
                 models.Base.metadata.create_all(bind=database.engine)
                 print("Table creation successful.")
 
+            # Face embeddings table — created lazily so existing deployments
+            # pick it up on first boot after the upgrade.
+            if "face_embeddings" not in existing_tables:
+                print("Migrating database: Creating face_embeddings table...")
+                models.Base.metadata.create_all(bind=database.engine)
+                print("face_embeddings created.")
+
             # 2. Check for missing columns (is_pinned, event_id)
             # Use inspector instead of PRAGMA for better portability
             
@@ -847,6 +854,282 @@ async def face_search(
         "results": combined,
         "errors": errors + extra_errors,
     }
+
+
+
+
+# --- Face Embeddings: ingest + search ---
+#
+# Two endpoints power the in-house face search (independent of Photohawk).
+#
+#   POST /api/faces/ingest  — PC RTX 2070 worker pushes face embeddings here
+#                             after running insightface on a folder of photos.
+#                             Auth: Bearer <FACES_INGEST_TOKEN> (env var).
+#
+#   POST /api/faces/search  — runner uploads a selfie, we forward it to the
+#                             PC's /embed endpoint (FACES_EMBED_URL), get one
+#                             embedding back, then brute-force cosine-search
+#                             against indexed faces filtered by event_id.
+#
+# Both deliberately bypass the Photohawk proxy path used by /events/{id}/face-search.
+# That endpoint stays the source of truth for photohawk-hosted galleries; this
+# pair handles everything else (workonfaith, rkshoots, MH photogs not on photohawk).
+
+@app.post("/api/faces/ingest", response_model=schemas.FaceIngestResponse)
+@limiter.limit(os.getenv("FACES_INGEST_RATE_LIMIT", "30/minute"))
+def faces_ingest(
+    request: Request,
+    payload: schemas.FaceIngestRequest,
+    db: Session = Depends(get_db),
+):
+    from services import faces as _faces
+
+    # Auth — Bearer token. We use a custom header check rather than
+    # FastAPI's OAuth2PasswordBearer because this isn't a user token,
+    # it's a worker shared secret. Constant-time compare lives in
+    # services.faces.verify_ingest_token.
+    auth_header = request.headers.get("authorization", "")
+    token = ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not _faces.verify_ingest_token(token):
+        raise HTTPException(status_code=401, detail="Invalid or missing ingest token")
+
+    items = payload.items or []
+    if not items:
+        raise HTTPException(status_code=400, detail="items[] is empty")
+    # Hard cap per request — keeps memory bounded and gives the worker a
+    # natural batch size to chunk against. 1000 faces ≈ ~2MB of embeddings
+    # over the wire, well under any reverse-proxy body limit.
+    if len(items) > 1000:
+        raise HTTPException(status_code=413, detail="Max 1000 items per request")
+
+    deleted_before = 0
+    if payload.replace_event is not None:
+        deleted_before = (
+            db.query(models.FaceEmbedding)
+            .filter(models.FaceEmbedding.event_id == payload.replace_event)
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+        logger.info("faces.ingest: cleared %d rows for event_id=%s", deleted_before, payload.replace_event)
+
+    inserted = 0
+    skipped = 0
+    errors: list[str] = []
+    rows: list[models.FaceEmbedding] = []
+    for idx, item in enumerate(items):
+        try:
+            blob = _faces.encode_embedding(item.embedding)
+        except ValueError as exc:
+            skipped += 1
+            errors.append(f"item[{idx}] (photo_id={item.photo_id}): {exc}")
+            continue
+        rows.append(models.FaceEmbedding(
+            photo_id=item.photo_id,
+            event_id=item.event_id,
+            photographer_id=item.photographer_id,
+            source=item.source,
+            source_url=item.source_url,
+            thumbnail_url=item.thumbnail_url,
+            embedding=blob,
+            embedding_dim=_faces.EMBEDDING_DIM,
+            bbox_x=item.bbox_x,
+            bbox_y=item.bbox_y,
+            bbox_w=item.bbox_w,
+            bbox_h=item.bbox_h,
+            det_score=item.det_score,
+        ))
+    if rows:
+        db.bulk_save_objects(rows)
+        db.commit()
+        inserted = len(rows)
+
+    logger.info(
+        "faces.ingest: inserted=%d skipped=%d deleted_before=%d (replace_event=%s)",
+        inserted, skipped, deleted_before, payload.replace_event,
+    )
+    return schemas.FaceIngestResponse(
+        inserted=inserted,
+        skipped=skipped,
+        deleted_before=deleted_before,
+        errors=errors[:50],
+    )
+
+
+@app.delete("/api/faces/event/{event_id}")
+def faces_delete_event(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Wipe ALL face embeddings for an event (admin or ingest-token).
+
+    Useful when re-running the ingest pipeline with a different model
+    version, or when the photographer asks for their event to be
+    de-indexed. Accepts either an admin JWT (cookie) OR the ingest
+    Bearer token so the PC worker can clean up after itself.
+    """
+    from services import faces as _faces
+
+    auth_header = request.headers.get("authorization", "")
+    bearer = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else ""
+    is_worker = _faces.verify_ingest_token(bearer)
+    if not is_worker:
+        # Fall back to admin cookie auth.
+        try:
+            auth.get_current_user(request=request, db=db)  # type: ignore[arg-type]
+        except Exception:
+            raise HTTPException(status_code=401, detail="Auth required")
+    deleted = (
+        db.query(models.FaceEmbedding)
+        .filter(models.FaceEmbedding.event_id == event_id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"event_id": event_id, "deleted": deleted}
+
+
+@app.get("/api/faces/stats")
+def faces_stats(db: Session = Depends(get_db)):
+    """Lightweight summary of what's indexed — for ops dashboard.
+
+    Public on purpose — no embeddings or identifying data leaks, just
+    aggregate counts the photographer + admin can sanity-check against.
+    """
+    from sqlalchemy import func as _f
+
+    total = db.query(_f.count(models.FaceEmbedding.id)).scalar() or 0
+    by_source = (
+        db.query(models.FaceEmbedding.source, _f.count(models.FaceEmbedding.id))
+        .group_by(models.FaceEmbedding.source)
+        .all()
+    )
+    by_event = (
+        db.query(
+            models.FaceEmbedding.event_id,
+            _f.count(_f.distinct(models.FaceEmbedding.photo_id)).label("photos"),
+            _f.count(models.FaceEmbedding.id).label("faces"),
+        )
+        .filter(models.FaceEmbedding.event_id.isnot(None))
+        .group_by(models.FaceEmbedding.event_id)
+        .all()
+    )
+    return {
+        "total_faces": total,
+        "by_source": {s: c for s, c in by_source},
+        "by_event": [
+            {"event_id": e, "photos": p, "faces": f} for e, p, f in by_event
+        ],
+    }
+
+
+@app.post("/api/faces/search", response_model=schemas.FaceSearchResponse)
+@limiter.limit(os.getenv("FACES_SEARCH_RATE_LIMIT", "10/minute"))
+async def faces_search(
+    request: Request,
+    selfie: UploadFile = File(...),
+    event_id: Optional[int] = Query(None, description="Filter by event"),
+    source: Optional[str] = Query(None, description="Filter by source: mh|workonfaith|rkshoots|external"),
+    threshold: float = Query(0.5, ge=0.0, le=1.0),
+    top_k: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Find photos containing the runner's face.
+
+    Pipeline:
+      1. Read selfie bytes (size-bounded).
+      2. Forward to FACES_EMBED_URL to get a 512-dim embedding.
+      3. Pull candidate embeddings from face_embeddings (filtered by
+         event_id/source if provided) — typical event ≈ tens of K rows.
+      4. Vectorised cosine similarity, return top_k above threshold.
+    """
+    from services import faces as _faces
+    import numpy as _np
+
+    # Read & size-check selfie.
+    raw = await selfie.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty selfie upload")
+    if len(raw) > 12 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Selfie too large (max 12MB)")
+
+    # Step 1: get one embedding for the selfie.
+    try:
+        query_vec = _faces.embed_selfie_via_proxy(
+            raw, content_type=selfie.content_type or "image/jpeg",
+        )
+    except _faces.EmbedError as exc:
+        # 503 because it's an upstream-dependency failure — not the
+        # caller's fault. UI can show "service tak available, cuba lagi".
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    query_arr = _faces.normalise(_np.asarray(query_vec, dtype="<f4"))
+
+    # Step 2: pull candidate rows.
+    q = db.query(models.FaceEmbedding)
+    if event_id is not None:
+        q = q.filter(models.FaceEmbedding.event_id == event_id)
+    if source:
+        q = q.filter(models.FaceEmbedding.source == source.strip().lower())
+    candidates = q.all()
+
+    if not candidates:
+        return schemas.FaceSearchResponse(
+            total_matches=0,
+            threshold=threshold,
+            matches=[],
+            errors=["Tiada gambar diindeks untuk filter ini lagi."],
+            indexed_sources=[],
+        )
+
+    # Step 3: stack + cosine-search.
+    cand_arr = _faces.stack_embeddings([c.embedding for c in candidates])
+    hits = _faces.cosine_search(query_arr, cand_arr, threshold=threshold, top_k=top_k)
+
+    # Step 4: build response, deduping by photo_id (a photo can have many
+    # faces — we only want to surface each photo once at its best score).
+    photog_cache: dict[int, models.Photographer] = {}
+    def _photog(pid):
+        if pid is None:
+            return None
+        if pid not in photog_cache:
+            photog_cache[pid] = db.query(models.Photographer).get(pid)
+        return photog_cache[pid]
+
+    seen_photos: dict[str, schemas.FaceMatch] = {}
+    for idx, sim in hits:
+        row = candidates[idx]
+        key = f"{row.source}:{row.photo_id}"
+        if key in seen_photos and seen_photos[key].similarity >= sim:
+            continue
+        p = _photog(row.photographer_id)
+        seen_photos[key] = schemas.FaceMatch(
+            photo_id=row.photo_id,
+            source=row.source,
+            source_url=row.source_url,
+            thumbnail_url=row.thumbnail_url,
+            similarity=round(sim, 4),
+            event_id=row.event_id,
+            photographer_id=row.photographer_id,
+            photographer_name=p.name if p else None,
+            photographer_brand=p.brand if p else None,
+        )
+
+    matches = sorted(seen_photos.values(), key=lambda m: -m.similarity)[:top_k]
+    indexed_sources = sorted({c.source for c in candidates})
+
+    logger.info(
+        "faces.search event_id=%s source=%s threshold=%.2f candidates=%d hits=%d unique_photos=%d",
+        event_id, source, threshold, len(candidates), len(hits), len(matches),
+    )
+    return schemas.FaceSearchResponse(
+        total_matches=len(matches),
+        threshold=threshold,
+        matches=matches,
+        errors=[],
+        indexed_sources=indexed_sources,
+    )
 
 
 # --- Analytics Endpoints ---

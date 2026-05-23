@@ -263,3 +263,88 @@ class AnalyticsSummary(BaseModel):
     popular_photographers: List[dict] # {id, name, views, unique_visitors}
     total_views: int
     unique_visitors: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Face Search Schemas
+# ---------------------------------------------------------------------------
+class FaceIngestItem(BaseModel):
+    """One face detected in one photo, ready to be stored.
+
+    The PC RTX 2070 ingest worker produces a list of these and POSTs
+    them in batches to /api/faces/ingest. Each item is a single FACE
+    (so a photo with 12 faces = 12 items sharing the same photo_id).
+    """
+
+    photo_id: str
+    event_id: Optional[int] = None
+    photographer_id: Optional[int] = None
+    source: str = "mh"  # mh | workonfaith | rkshoots | external
+    source_url: str
+    thumbnail_url: Optional[str] = None
+    embedding: List[float]  # 512 floats (insightface buffalo_l)
+    bbox_x: Optional[int] = None
+    bbox_y: Optional[int] = None
+    bbox_w: Optional[int] = None
+    bbox_h: Optional[int] = None
+    det_score: Optional[float] = None
+
+    @field_validator("source")
+    @classmethod
+    def _check_source(cls, v: str) -> str:
+        v = (v or "mh").strip().lower()
+        if v not in {"mh", "workonfaith", "rkshoots", "external"}:
+            raise ValueError(
+                "source mesti salah satu: mh, workonfaith, rkshoots, external"
+            )
+        return v
+
+    @field_validator("source_url")
+    @classmethod
+    def _check_source_url(cls, v: str) -> str:
+        if not v or not v.startswith(("http://", "https://", "/")):
+            raise ValueError("source_url mesti URL atau path absolute")
+        return v
+
+
+class FaceIngestRequest(BaseModel):
+    """Batch ingest payload — one POST = many faces.
+
+    `replace_event` lets a re-ingest of an event wipe old embeddings
+    first (use when re-running the PC pipeline with a different model
+    version, or after the photographer added more photos and you want
+    to start clean instead of de-duping by photo_id).
+    """
+
+    items: List[FaceIngestItem]
+    replace_event: Optional[int] = None  # if set, deletes existing rows for this event_id BEFORE inserting
+
+
+class FaceIngestResponse(BaseModel):
+    inserted: int
+    skipped: int
+    deleted_before: int = 0
+    errors: List[str] = []
+
+
+class FaceMatch(BaseModel):
+    photo_id: str
+    source: str
+    source_url: str
+    thumbnail_url: Optional[str] = None
+    similarity: float
+    event_id: Optional[int] = None
+    photographer_id: Optional[int] = None
+    photographer_name: Optional[str] = None
+    photographer_brand: Optional[str] = None
+
+
+class FaceSearchResponse(BaseModel):
+    total_matches: int
+    threshold: float
+    matches: List[FaceMatch]
+    errors: List[str] = []
+    # Helpful for the UI: which sources had ANY embeddings indexed for
+    # this event, so the runner knows whether "0 results" means "nothing
+    # matched" or "we never indexed this gallery".
+    indexed_sources: List[str] = []

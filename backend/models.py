@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, LargeBinary, Index
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -112,3 +112,57 @@ class PageView(Base):
     ip_hash = Column(String, nullable=True) # Anonymized IP
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     user_agent = Column(String, nullable=True)
+
+
+class FaceEmbedding(Base):
+    """One row per face detected in a photo.
+
+    A single photo can have many faces (avg ~12 in marathon shots), so
+    photo_id is NOT unique — each face gets its own row. Embedding is
+    stored as raw float32 bytes (insightface default = 512 dims = 2048
+    bytes per vector). For ~4K photos * 12 faces ≈ 48K rows ≈ 100MB
+    embeddings — comfortable for SQLite brute-force scan at search time.
+
+    Source platforms (workonfaith / rkshoots / mh) are kept as a free
+    text label so we can filter by source or display "found on X"
+    without joining back to assignments. event_id and photographer_id
+    are nullable: ingestion script may not always know the photographer
+    for scraped/external sources, but should always know the event.
+    """
+
+    __tablename__ = "face_embeddings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Stable photo identifier from the source platform (URL, gallery
+    # photo guid, file hash — whatever the ingest script can produce
+    # consistently so re-running ingest is idempotent).
+    photo_id = Column(String, index=True, nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id"), index=True, nullable=True)
+    photographer_id = Column(Integer, ForeignKey("photographers.id"), index=True, nullable=True)
+    # 'mh' | 'workonfaith' | 'rkshoots' | 'external'
+    source = Column(String, index=True, nullable=False, default="mh")
+    # Where to send the runner to view/buy this photo on the source platform.
+    source_url = Column(String, nullable=False)
+    # Optional preview image (small thumbnail URL) the search UI can render
+    # without hitting the source platform on every result.
+    thumbnail_url = Column(String, nullable=True)
+    # Float32 embedding bytes (insightface buffalo_l = 512 dims).
+    embedding = Column(LargeBinary, nullable=False)
+    embedding_dim = Column(Integer, nullable=False, default=512)
+    # Bbox in pixels: x, y, w, h — useful for highlighting the matched
+    # face on the photo or debugging false positives.
+    bbox_x = Column(Integer, nullable=True)
+    bbox_y = Column(Integer, nullable=True)
+    bbox_w = Column(Integer, nullable=True)
+    bbox_h = Column(Integer, nullable=True)
+    # Detection confidence (0..1) — lets us drop low-quality crops before
+    # comparing, or surface "blurry face — match uncertain" warnings.
+    det_score = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        # Idempotency for re-runs: same photo+source can be re-ingested
+        # without dupes, but we keep one row PER FACE so the unique key
+        # also covers bbox origin (a 1-px shift = different detection).
+        Index("ix_face_photo_source", "photo_id", "source"),
+    )
