@@ -840,16 +840,36 @@ def _inject_meta(html, title, description, url, image=None, json_ld=None, body_e
     return html
 
 
+def _event_date_myt(event):
+    """Return event.date converted to MYT (UTC+8).
+
+    DB stores datetimes in UTC (frontend submits via toISOString()), but for
+    sharing/SEO/calendar we want to display the original local wall time the
+    organiser typed. Returns a naive datetime in MYT, or None.
+    """
+    from datetime import timedelta, timezone
+    try:
+        d = event.date
+        if not d or not hasattr(d, "strftime"):
+            return None
+        if d.tzinfo is None:
+            # Treat as UTC (that's what we store) and convert to MYT.
+            from datetime import timezone as _tz
+            d = d.replace(tzinfo=_tz.utc)
+        myt = d.astimezone(timezone(timedelta(hours=8)))
+        return myt.replace(tzinfo=None)
+    except Exception:
+        return None
+
+
 def _build_event_meta(event):
     """Build meta payload for an event."""
     name = event.name or "Race Event"
     location = event.location or "Malaysia"
     date_str = ""
-    try:
-        if event.date:
-            date_str = event.date.strftime("%d %B %Y") if hasattr(event.date, "strftime") else str(event.date)[:10]
-    except Exception:
-        date_str = ""
+    date_myt = _event_date_myt(event)
+    if date_myt:
+        date_str = date_myt.strftime("%d %B %Y")
 
     # Count assignments
     assignment_count = len(getattr(event, "assignments", []) or [])
@@ -877,9 +897,9 @@ def _build_event_meta(event):
         "location": {"@type": "Place", "name": location, "address": location},
         "image": image,
     }
-    if date_str and event.date:
+    if date_str and date_myt:
         try:
-            json_ld["startDate"] = event.date.isoformat() if hasattr(event.date, "isoformat") else str(event.date)
+            json_ld["startDate"] = date_myt.strftime("%Y-%m-%dT%H:%M:%S+08:00")
         except Exception:
             pass
     if event.description:
@@ -1122,11 +1142,9 @@ def _generate_event_og_image(event):
     info_y = y + 10
     info_font = _font(28)
     date_str = ""
-    try:
-        if event.date:
-            date_str = event.date.strftime("%d %B %Y") if hasattr(event.date, "strftime") else str(event.date)[:10]
-    except Exception:
-        pass
+    date_myt = _event_date_myt(event)
+    if date_myt:
+        date_str = date_myt.strftime("%d %B %Y")
     if date_str:
         draw.text((60, info_y), f"📅  {date_str}", font=info_font, fill=MUTED)
         info_y += 42
@@ -1234,12 +1252,9 @@ def share_text_event(event_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Event not found")
 
     lines = [f"📷 {event.name}"]
-    try:
-        if event.date:
-            date_str = event.date.strftime("%d %B %Y") if hasattr(event.date, "strftime") else str(event.date)[:10]
-            lines.append(f"📅 {date_str}")
-    except Exception:
-        pass
+    date_myt = _event_date_myt(event)
+    if date_myt:
+        lines.append(f"📅 {date_myt.strftime('%d %B %Y')}")
     if event.location:
         lines.append(f"📍 {event.location}")
 
@@ -1302,9 +1317,9 @@ def event_ics(event_id: int, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # Build start/end times. Events default to all-day if no time info.
-    # MarathonHub stores `date` as a DATETIME — treat it as the event
-    # start (assumed to be in MYT for display) and add a 6-hour window.
+    # Build start/end times. MarathonHub stores `date` as UTC (frontend
+    # submits via toISOString()). Just attach UTC tzinfo and let the ICS
+    # render in UTC — calendar clients convert to viewer's local TZ.
     try:
         start_dt = event.date if hasattr(event.date, "strftime") else None
     except Exception:
@@ -1314,11 +1329,8 @@ def event_ics(event_id: int, db: Session = Depends(get_db)):
         # Fallback to today midnight if the date is malformed
         start_dt = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Treat stored datetime as MYT (UTC+8) and convert to UTC for the ICS.
-    # Most events store date with hour=0, but if hour was set we honour it.
-    myt = timezone(timedelta(hours=8))
     if start_dt.tzinfo is None:
-        start_dt = start_dt.replace(tzinfo=myt)
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
     end_dt = start_dt + timedelta(hours=6)
     start_utc = start_dt.astimezone(timezone.utc)
     end_utc = end_dt.astimezone(timezone.utc)
