@@ -539,7 +539,7 @@ async def face_search(
     event_id: int,
     request: Request,
     selfie: UploadFile = File(...),
-    threshold: float = Query(0.7, ge=0.0, le=1.0),
+    threshold: float = Query(0.85, ge=0.0, le=1.0),
     db: Session = Depends(get_db),
 ):
     from datetime import datetime as _dt
@@ -717,6 +717,23 @@ async def face_search(
                 continue
             if guid:
                 slim.append({"guid": guid, "score": score})
+        # Audit log: per-engine match summary (for tuning false-positives).
+        # Score values logged so we can spot loose-threshold complaints
+        # without keeping selfie bytes anywhere.
+        if slim:
+            scores = [s["score"] for s in slim if s.get("score") is not None]
+            score_summary = (
+                f"min={min(scores):.2f} max={max(scores):.2f} avg={sum(scores)/len(scores):.2f}"
+                if scores else "scores=n/a"
+            )
+            logger.info(
+                "face-search event=%s photographer=%s threshold=%.2f matches=%d %s",
+                event_id,
+                a.photographer.name if a.photographer else "?",
+                threshold,
+                len(slim),
+                score_summary,
+            )
         total_matches += len(slim)
         results.append({
             "assignment_id": a.id,
