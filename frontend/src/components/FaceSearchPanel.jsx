@@ -149,7 +149,8 @@ export default function FaceSearchPanel({ event, assignments }) {
     };
 
     const totalMatches = results?.total_matches ?? 0;
-    const photographersWithMatches = results?.results?.filter(r => r.match_count > 0) ?? [];
+    const photographersWithMatches = results?.results?.filter(r => r.match_count > 0 && !r.info_only) ?? [];
+    const infoOnlyResults = results?.results?.filter(r => r.info_only) ?? [];
 
     return (
         <motion.section
@@ -366,6 +367,57 @@ export default function FaceSearchPanel({ event, assignments }) {
                                             </a>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Info-only galleries (e.g. GeoSnapShot) — kita
+                                tak boleh search face kat sini, tapi tunjuk
+                                count + link supaya runner tau dia ada. */}
+                            {infoOnlyResults.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest pt-1">
+                                        Photographer lain (tiada face-search)
+                                    </p>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        {infoOnlyResults.map((r) => (
+                                            <a
+                                                key={r.assignment_id}
+                                                href={r.gallery_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => {
+                                                    api.post('/track', {
+                                                        path: r.gallery_url,
+                                                        entity_type: 'photographer',
+                                                        entity_id: r.photographer.id,
+                                                        event_id: event.id,
+                                                    }).catch(() => {});
+                                                }}
+                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-amber-400/40 hover:bg-white/[0.04] transition-all"
+                                            >
+                                                {r.photographer.logo_url ? (
+                                                    <img
+                                                        src={r.photographer.logo_url}
+                                                        alt={r.photographer.name}
+                                                        className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center flex-shrink-0">
+                                                        <Camera className="w-5 h-5 text-amber-400/60" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-black text-sm uppercase italic truncate">
+                                                        {r.photographer.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-amber-400 font-bold uppercase tracking-widest">
+                                                        {r.photo_count?.toLocaleString() ?? '—'} keping · cari manual
+                                                    </p>
+                                                </div>
+                                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors flex-shrink-0" />
+                                            </a>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 

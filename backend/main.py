@@ -623,12 +623,58 @@ async def face_search(
         for a in assignments
         if a.engine_guid and a.gallery_url
     ]
-    if not fanout:
+
+    # Surface non-Photohawk galleries we recognise (currently just GeoSnapShot)
+    # as info-only blocks: we can't run face-search against them, but we can
+    # at least tell the runner how many photos are in there + the link.
+    from services import geosnapshot as _gs
+    extra_results = []
+    extra_errors: list[str] = []
+    geosnap_assignments = [
+        a for a in assignments
+        if a.gallery_url and _gs.is_geosnapshot_gallery_url(a.gallery_url)
+    ]
+    if geosnap_assignments:
+        from concurrent.futures import ThreadPoolExecutor as _TPE2
+
+        def _gs_count(a):
+            try:
+                return a, _gs.resolve_gallery_count(a.gallery_url), None
+            except _gs.GeoSnapShotError as exc:
+                return a, None, str(exc)
+
+        with _TPE2(max_workers=4) as ex:
+            for a, count, err in ex.map(_gs_count, geosnap_assignments):
+                if err or count is None:
+                    extra_errors.append(
+                        f"{a.photographer.name if a.photographer else 'photographer'}: {err or 'unknown'}"
+                    )
+                    continue
+                extra_results.append({
+                    "assignment_id": a.id,
+                    "photographer": {
+                        "id": a.photographer.id if a.photographer else None,
+                        "name": a.photographer.name if a.photographer else "Photographer",
+                        "brand": a.photographer.brand if a.photographer else None,
+                        "logo_url": a.photographer.logo_url if a.photographer else None,
+                    },
+                    "gallery_url": a.gallery_url,
+                    "tenant_guid": None,
+                    "cover_guid": None,
+                    "match_count": 0,
+                    "matches": [],
+                    "error": None,
+                    "platform": "geosnapshot",
+                    "info_only": True,
+                    "photo_count": count,
+                })
+
+    if not fanout and not extra_results:
         return {
             "event_id": event_id,
             "total_matches": 0,
-            "results": [],
-            "errors": resolve_errors or ["No searchable galleries for this event."],
+            "results": extra_results,
+            "errors": resolve_errors + extra_errors or ["No searchable galleries for this event."],
         }
 
     # Run the parallel search.
