@@ -624,6 +624,42 @@ async def face_search(
         if a.engine_guid and a.gallery_url
     ]
 
+    # Coverage status helper — used for BOTH photohawk and non-photohawk
+    # results so the UI can show a fair, photographer-friendly badge instead
+    # of "no match found" in cases where the gallery just isn't ready yet
+    # or doesn't support face search at all.
+    #
+    # States:
+    #   MATCHES       — engine ran, found ≥1 hit
+    #   INDEXING      — engine ran, 0 hits, event finished < 72h ago
+    #                   (photographer likely still uploading)
+    #   NO_MATCH      — engine ran, 0 hits, event > 72h old
+    #   BROWSE_ONLY   — gallery host doesn't support face search at all
+    #                   (geosnapshot, pixieset, custom — runner browses manually)
+    INDEXING_WINDOW_HOURS = 72
+    is_recent_event = False
+    if event.date:
+        try:
+            now = _dt.utcnow()
+            ev_dt = event.date
+            # SQLite stores naive UTC; strip tz if present for safe diff
+            if hasattr(ev_dt, "tzinfo") and ev_dt.tzinfo is not None:
+                ev_dt = ev_dt.replace(tzinfo=None)
+            hours_since = (now - ev_dt).total_seconds() / 3600
+            # Recent = event ended within last INDEXING_WINDOW_HOURS hours.
+            # Negative hours_since (event still upcoming) also counts as recent
+            # since photogs definitely won't have uploaded yet.
+            is_recent_event = hours_since < INDEXING_WINDOW_HOURS
+        except Exception:
+            is_recent_event = False
+
+    def _coverage_status(has_engine: bool, match_count: int) -> str:
+        if not has_engine:
+            return "BROWSE_ONLY"
+        if match_count > 0:
+            return "MATCHES"
+        return "INDEXING" if is_recent_event else "NO_MATCH"
+
     # Surface non-Photohawk galleries we recognise (currently just GeoSnapShot)
     # as info-only blocks: we can't run face-search against them, but we can
     # at least tell the runner how many photos are in there + the link.
@@ -666,8 +702,53 @@ async def face_search(
                     "error": None,
                     "platform": "geosnapshot",
                     "info_only": True,
+                    "coverage_status": "BROWSE_ONLY",
                     "photo_count": count,
                 })
+
+    # Catch-all for OTHER non-photohawk galleries (Pixieset/RKShoots, custom
+    # photographer sites, etc.) — anything we couldn't auto-resolve and isn't
+    # geosnapshot. Surface them as BROWSE_ONLY cards so the photographer is
+    # still visible to runners (fair to photogs who use platforms we don't
+    # have face search for) and runners get the gallery link to browse.
+    handled_assignment_ids = {
+        a.id for a in to_resolve if a.engine_guid  # photohawk auto-resolved
+    } | {
+        a.id for a in assignments if a.engine_guid  # photohawk pre-resolved
+    } | {
+        e["assignment_id"] for e in extra_results  # geosnapshot
+    }
+    for a in assignments:
+        if a.id in handled_assignment_ids:
+            continue
+        if not a.gallery_url:
+            continue
+        if not a.photographer:
+            continue
+        # Skip photohawk-shaped URLs that failed resolution — those are surfaced
+        # in `errors`, not as cards (runner doesn't need to see broken-resolve
+        # photographers as if they were intentional non-face-search platforms).
+        if photohawk.is_photohawk_gallery_url(a.gallery_url):
+            continue
+        extra_results.append({
+            "assignment_id": a.id,
+            "photographer": {
+                "id": a.photographer.id,
+                "name": a.photographer.name,
+                "brand": a.photographer.brand,
+                "logo_url": a.photographer.logo_url,
+            },
+            "gallery_url": a.gallery_url,
+            "tenant_guid": None,
+            "cover_guid": None,
+            "match_count": 0,
+            "matches": [],
+            "error": None,
+            "platform": "other",
+            "info_only": True,
+            "coverage_status": "BROWSE_ONLY",
+            "photo_count": None,
+        })
 
     if not fanout and not extra_results:
         return {
@@ -749,16 +830,22 @@ async def face_search(
             "match_count": len(slim),
             "matches": slim[:50],  # cap per-photog to keep payload small
             "error": err,
+            "coverage_status": _coverage_status(True, len(slim)),
+            "platform": "photohawk",
         })
 
     # Sort: most matches first, then alphabetical for ties.
     results.sort(key=lambda r: (-r["match_count"], r["photographer"]["name"] or ""))
 
+    # Combine: photohawk results (with matches potential) + browse-only blocks.
+    # Browse-only goes after photohawk so the search-capable photogs surface first.
+    combined = results + extra_results
+
     return {
         "event_id": event_id,
         "total_matches": total_matches,
-        "results": results,
-        "errors": errors,
+        "results": combined,
+        "errors": errors + extra_errors,
     }
 
 

@@ -149,8 +149,13 @@ export default function FaceSearchPanel({ event, assignments }) {
     };
 
     const totalMatches = results?.total_matches ?? 0;
-    const photographersWithMatches = results?.results?.filter(r => r.match_count > 0 && !r.info_only) ?? [];
-    const infoOnlyResults = results?.results?.filter(r => r.info_only) ?? [];
+    const allResults = results?.results ?? [];
+    // Bucket results by coverage_status for fair, photographer-friendly display.
+    // Backend tags every result so we don't have to guess from match_count alone.
+    const matchesResults = allResults.filter(r => r.coverage_status === 'MATCHES');
+    const indexingResults = allResults.filter(r => r.coverage_status === 'INDEXING');
+    const browseOnlyResults = allResults.filter(r => r.coverage_status === 'BROWSE_ONLY');
+    const noMatchResults = allResults.filter(r => r.coverage_status === 'NO_MATCH');
 
     return (
         <motion.section
@@ -305,10 +310,12 @@ export default function FaceSearchPanel({ event, assignments }) {
                                     {totalMatches > 0 ? (
                                         <>
                                             <span className="text-primary font-black">{totalMatches}</span> gambar match dari{' '}
-                                            <span className="text-primary font-black">{photographersWithMatches.length}</span> photographer
+                                            <span className="text-primary font-black">{matchesResults.length}</span> photographer
                                         </>
                                     ) : (
-                                        <span className="text-slate-400">Tak jumpa match. Cuba selfie yang clear / muka penuh.</span>
+                                        <span className="text-slate-400">
+                                            Tak jumpa match automatik. Cuba selfie yang clear, atau browse manual photographer di bawah.
+                                        </span>
                                     )}
                                 </p>
                                 {totalMatches > 0 && (
@@ -321,9 +328,9 @@ export default function FaceSearchPanel({ event, assignments }) {
                                 )}
                             </div>
 
-                            {photographersWithMatches.length > 0 && (
+                            {matchesResults.length > 0 && (
                                 <div className="grid gap-3 md:grid-cols-2">
-                                    {photographersWithMatches.map((r) => {
+                                    {matchesResults.map((r) => {
                                         const guids = (r.matches || []).map(m => m.guid).filter(Boolean);
                                         const deepLink = guids.length
                                             ? `${r.gallery_url}?guids=${guids.slice(0, 20).join(',')}`
@@ -370,16 +377,20 @@ export default function FaceSearchPanel({ event, assignments }) {
                                 </div>
                             )}
 
-                            {/* Info-only galleries (e.g. GeoSnapShot) — kita
-                                tak boleh search face kat sini, tapi tunjuk
-                                count + link supaya runner tau dia ada. */}
-                            {infoOnlyResults.length > 0 && (
+                            {/* INDEXING — engine ran, 0 match, event baru habis < 72h.
+                                Photographer mungkin masih upload, jadi kita beritahu
+                                runner: jangan assume photographer takde gambar dia. */}
+                            {indexingResults.length > 0 && (
                                 <div className="space-y-2">
-                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest pt-1">
-                                        Photographer lain (tiada face-search)
+                                    <p className="text-[11px] text-amber-300/80 font-bold uppercase tracking-widest pt-1 flex items-center gap-2">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Photographer mungkin masih upload ({indexingResults.length})
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 font-medium -mt-1">
+                                        Event baru je habis. Cuba semak balik dalam beberapa jam, atau browse gallery sendiri ↓
                                     </p>
                                     <div className="grid gap-3 md:grid-cols-2">
-                                        {infoOnlyResults.map((r) => (
+                                        {indexingResults.map((r) => (
                                             <a
                                                 key={r.assignment_id}
                                                 href={r.gallery_url}
@@ -393,7 +404,7 @@ export default function FaceSearchPanel({ event, assignments }) {
                                                         event_id: event.id,
                                                     }).catch(() => {});
                                                 }}
-                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-amber-400/40 hover:bg-white/[0.04] transition-all"
+                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-amber-400/[0.04] border border-amber-400/20 hover:border-amber-400/50 transition-all"
                                             >
                                                 {r.photographer.logo_url ? (
                                                     <img
@@ -410,8 +421,8 @@ export default function FaceSearchPanel({ event, assignments }) {
                                                     <p className="text-white font-black text-sm uppercase italic truncate">
                                                         {r.photographer.name}
                                                     </p>
-                                                    <p className="text-[11px] text-amber-400 font-bold uppercase tracking-widest">
-                                                        {r.photo_count?.toLocaleString() ?? '—'} keping · cari manual
+                                                    <p className="text-[11px] text-amber-300 font-bold uppercase tracking-widest">
+                                                        Mungkin masih upload · browse manual
                                                     </p>
                                                 </div>
                                                 <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors flex-shrink-0" />
@@ -421,25 +432,80 @@ export default function FaceSearchPanel({ event, assignments }) {
                                 </div>
                             )}
 
-                            {/* Photographers with zero matches — show muted so runner
-                                tau dia dah scan semua, takde tertinggal. */}
-                            {results.results?.length > photographersWithMatches.length && (
+                            {/* BROWSE_ONLY — gallery host takde face search built-in
+                                (geosnapshot, pixieset, custom). Photographer tetap
+                                deserve nampak — runner browse manual. */}
+                            {browseOnlyResults.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest pt-1">
+                                        Photographer tanpa face-search ({browseOnlyResults.length})
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 font-medium -mt-1">
+                                        Platform mereka tak sokong face search. Browse gallery sendiri.
+                                    </p>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        {browseOnlyResults.map((r) => (
+                                            <a
+                                                key={r.assignment_id}
+                                                href={r.gallery_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => {
+                                                    api.post('/track', {
+                                                        path: r.gallery_url,
+                                                        entity_type: 'photographer',
+                                                        entity_id: r.photographer.id,
+                                                        event_id: event.id,
+                                                    }).catch(() => {});
+                                                }}
+                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-primary/40 hover:bg-white/[0.04] transition-all"
+                                            >
+                                                {r.photographer.logo_url ? (
+                                                    <img
+                                                        src={r.photographer.logo_url}
+                                                        alt={r.photographer.name}
+                                                        className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                        <Camera className="w-5 h-5 text-primary/60" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-black text-sm uppercase italic truncate">
+                                                        {r.photographer.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
+                                                        {r.photo_count
+                                                            ? `${r.photo_count.toLocaleString()} keping · cari manual`
+                                                            : 'Browse manual ↗'}
+                                                    </p>
+                                                </div>
+                                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* NO_MATCH — engine ran, event > 72h, 0 hits. Truly no match.
+                                Compact list (collapsed by default) so runner tau dah scan
+                                semua, takde tertinggal. */}
+                            {noMatchResults.length > 0 && (
                                 <details className="group">
                                     <summary className="text-xs text-slate-500 hover:text-slate-300 font-bold cursor-pointer list-none flex items-center gap-2">
                                         <span className="group-open:rotate-90 transition-transform">▶</span>
-                                        Photographer takde match ({results.results.length - photographersWithMatches.length})
+                                        Photographer takde match ({noMatchResults.length})
                                     </summary>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {results.results
-                                            .filter(r => r.match_count === 0)
-                                            .map(r => (
-                                                <span
-                                                    key={r.assignment_id}
-                                                    className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-500 font-medium"
-                                                >
-                                                    {r.photographer.name}
-                                                </span>
-                                            ))}
+                                        {noMatchResults.map(r => (
+                                            <span
+                                                key={r.assignment_id}
+                                                className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-500 font-medium"
+                                            >
+                                                {r.photographer.name}
+                                            </span>
+                                        ))}
                                     </div>
                                 </details>
                             )}
