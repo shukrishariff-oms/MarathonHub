@@ -14,11 +14,12 @@ Gallery URL shape: https://geosnapshot.com/e/<slug>/<event_id>
 
 from __future__ import annotations
 
+import json
 import re
+import urllib.error
+import urllib.request
 from typing import Optional
 from urllib.parse import urlparse
-
-import requests
 
 API_BASE = "https://geosnapshot.com/api/v1"
 HTTP_TIMEOUT = 8  # seconds — cap to avoid stalling face-search
@@ -61,22 +62,29 @@ def get_photo_count(event_id: str) -> int:
     """
     if not event_id:
         raise GeoSnapShotError("missing event_id")
+
+    req = urllib.request.Request(
+        f"{API_BASE}/events/{event_id}/albums",
+        headers={"Accept": "application/json"},
+    )
     try:
-        r = requests.get(
-            f"{API_BASE}/events/{event_id}/albums",
-            headers={"Accept": "application/json"},
-            timeout=HTTP_TIMEOUT,
-        )
-    except requests.RequestException as e:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            status = resp.status
+            body = resp.read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            raise GeoSnapShotError("event not found on geosnapshot")
+        raise GeoSnapShotError(f"geosnapshot returned HTTP {e.code}")
+    except urllib.error.URLError as e:
+        raise GeoSnapShotError(f"network error: {e.reason}")
+    except Exception as e:
         raise GeoSnapShotError(f"network error: {e}")
 
-    if r.status_code == 404:
-        raise GeoSnapShotError("event not found on geosnapshot")
-    if r.status_code != 200:
-        raise GeoSnapShotError(f"geosnapshot returned HTTP {r.status_code}")
+    if status != 200:
+        raise GeoSnapShotError(f"geosnapshot returned HTTP {status}")
 
     try:
-        data = r.json()
+        data = json.loads(body)
     except Exception:
         raise GeoSnapShotError("invalid JSON from geosnapshot")
 
