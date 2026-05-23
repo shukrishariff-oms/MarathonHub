@@ -1,0 +1,13 @@
+# Face worker dependencies — install on RTX 2070 PC.
+#
+# IMPORTANT: onnxruntime-gpu requires CUDA 11.8 or 12.x runtime.
+# If you have CUDA 11.x, pin to 1.17.x. If 12.x, latest is fine.
+insightface==0.7.3
+onnxruntime-gpu==1.17.1
+numpy>=1.24,<2
+opencv-python-headless>=4.8
+fastapi>=0.110
+uvicorn[standard]>=0.27
+requests>=2.31
+tqdm>=4.66
+python-multipart>=0.0.9
