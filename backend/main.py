@@ -640,6 +640,19 @@ async def face_search(
     # info to each result block.
     by_engine = {a.engine_guid: a for a in assignments if a.engine_guid}
 
+    # TEMP DEBUG: log first match shape per engine so we know if Photohawk
+    # returns dicts (with thumbnailUrl) or flat strings.
+    try:
+        import logging as _lg
+        _lg.getLogger("uvicorn.error").info(
+            "[face-search-debug] raw_results sample shape: %s",
+            {k: (type(v.get("matches",[])[0]).__name__ if v.get("matches") else "empty",
+                 (v.get("matches") or [None])[0])
+             for k, v in list(raw_results.items())[:3]},
+        )
+    except Exception:
+        pass
+
     results = []
     total_matches = 0
     errors = list(resolve_errors)
