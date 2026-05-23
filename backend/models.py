@@ -98,6 +98,16 @@ class Assignment(Base):
     cover_guid = Column(String, nullable=True)
     resolved_at = Column(DateTime, nullable=True)
 
+    # Photo count from the source gallery (Photohawk noItems, GeoSnapShot
+    # albums sum, or generic HTML probe for custom platforms). Used to
+    # distinguish "engine ran, 0 hits" between:
+    #   - photographer hasn't uploaded yet (count = 0) → INDEXING
+    #   - photographer uploaded but runner not in any photo → NO_MATCH
+    # Refreshed on a soft TTL (gallery_checked_at) so live searches
+    # don't hammer source galleries on every request.
+    gallery_photo_count = Column(Integer, nullable=True)
+    gallery_checked_at = Column(DateTime, nullable=True)
+
     event = relationship("Event", back_populates="assignments")
     photographer = relationship("Photographer", back_populates="assignments")
 

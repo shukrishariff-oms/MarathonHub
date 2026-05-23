@@ -90,6 +90,8 @@ def check_and_migrate_db():
                 ("tenant_guid", "ALTER TABLE assignments ADD COLUMN tenant_guid VARCHAR"),
                 ("cover_guid",  "ALTER TABLE assignments ADD COLUMN cover_guid VARCHAR"),
                 ("resolved_at", "ALTER TABLE assignments ADD COLUMN resolved_at DATETIME"),
+                ("gallery_photo_count", "ALTER TABLE assignments ADD COLUMN gallery_photo_count INTEGER"),
+                ("gallery_checked_at", "ALTER TABLE assignments ADD COLUMN gallery_checked_at DATETIME"),
             ):
                 if col_name not in assign_cols:
                     print(f"Migrating database: Adding {col_name} column to assignments...")
@@ -594,11 +596,26 @@ async def face_search(
     from concurrent.futures import ThreadPoolExecutor as _TPE
 
     resolve_errors: list[str] = []
+    # Soft TTL for refreshing photo counts on already-resolved galleries.
+    # Photographer may add more photos after first resolve, so we re-fetch
+    # noItems periodically (engine_guid stays the same — fast call, just
+    # re-parses the gallery HTML).
+    GALLERY_COUNT_TTL_SECONDS = 3600  # 1h
+    _now = _dt.utcnow()
+
+    def _needs_count_refresh(a):
+        if a.gallery_checked_at is None:
+            return True
+        try:
+            return (_now - a.gallery_checked_at).total_seconds() > GALLERY_COUNT_TTL_SECONDS
+        except Exception:
+            return True
+
     to_resolve = [
         a for a in assignments
-        if not a.engine_guid
-        and a.gallery_url
+        if a.gallery_url
         and photohawk.is_photohawk_gallery_url(a.gallery_url)
+        and (not a.engine_guid or _needs_count_refresh(a))
     ]
 
     if to_resolve:
@@ -622,6 +639,13 @@ async def face_search(
                 a.tenant_guid = meta.tenant_guid
                 a.cover_guid = meta.cover_guid
                 a.resolved_at = _dt.utcnow()
+                # Refresh photo count from gallery — used for fair coverage
+                # status (distinguishes "not uploaded" from "uploaded but no
+                # match for this runner"). Photohawk includes noItems in
+                # __NEXT_DATA__ so this is free with the resolve.
+                if meta.total_items is not None:
+                    a.gallery_photo_count = int(meta.total_items)
+                a.gallery_checked_at = _now
         db.commit()
 
     # Build fan-out list: only assignments with a resolved engine_guid.
@@ -638,34 +662,26 @@ async def face_search(
     #
     # States:
     #   MATCHES       — engine ran, found ≥1 hit
-    #   INDEXING      — engine ran, 0 hits, event finished < 72h ago
-    #                   (photographer likely still uploading)
-    #   NO_MATCH      — engine ran, 0 hits, event > 72h old
+    #   INDEXING      — gallery has 0 photos uploaded yet (genuine "not ready")
+    #   NO_MATCH      — gallery has photos uploaded, but runner not in any
     #   BROWSE_ONLY   — gallery host doesn't support face search at all
     #                   (geosnapshot, pixieset, custom — runner browses manually)
-    INDEXING_WINDOW_HOURS = 72
-    is_recent_event = False
-    if event.date:
-        try:
-            now = _dt.utcnow()
-            ev_dt = event.date
-            # SQLite stores naive UTC; strip tz if present for safe diff
-            if hasattr(ev_dt, "tzinfo") and ev_dt.tzinfo is not None:
-                ev_dt = ev_dt.replace(tzinfo=None)
-            hours_since = (now - ev_dt).total_seconds() / 3600
-            # Recent = event ended within last INDEXING_WINDOW_HOURS hours.
-            # Negative hours_since (event still upcoming) also counts as recent
-            # since photogs definitely won't have uploaded yet.
-            is_recent_event = hours_since < INDEXING_WINDOW_HOURS
-        except Exception:
-            is_recent_event = False
-
-    def _coverage_status(has_engine: bool, match_count: int) -> str:
+    #
+    # Note: previously we used a 72h "indexing window" heuristic — if event
+    # ended < 72h ago and 0 hits, assume photographer still uploading. That
+    # was unfair to photographers who DID upload but the runner just isn't
+    # in any photo (UI kept showing "masih upload" forever). Now we check
+    # the actual gallery photo count, which is accurate per-photographer.
+    def _coverage_status(has_engine: bool, match_count: int,
+                         photo_count: Optional[int] = None) -> str:
         if not has_engine:
             return "BROWSE_ONLY"
         if match_count > 0:
             return "MATCHES"
-        return "INDEXING" if is_recent_event else "NO_MATCH"
+        # Engine ran, 0 matches. Did the photographer upload anything?
+        if photo_count is not None and photo_count <= 0:
+            return "INDEXING"  # genuine: gallery is empty
+        return "NO_MATCH"  # photographer uploaded, runner just not in any frame
 
     # Surface non-Photohawk galleries we recognise (currently just GeoSnapShot)
     # as info-only blocks: we can't run face-search against them, but we can
@@ -680,9 +696,14 @@ async def face_search(
     if geosnap_assignments:
         from concurrent.futures import ThreadPoolExecutor as _TPE2
 
+        # Reuse the same TTL as photohawk to keep behaviour consistent.
+        # Skip the network call if we already fetched recently.
         def _gs_count(a):
             try:
-                return a, _gs.resolve_gallery_count(a.gallery_url), None
+                if a.gallery_photo_count is not None and not _needs_count_refresh(a):
+                    return a, a.gallery_photo_count, None
+                count = _gs.resolve_gallery_count(a.gallery_url)
+                return a, count, None
             except _gs.GeoSnapShotError as exc:
                 return a, None, str(exc)
 
@@ -693,6 +714,10 @@ async def face_search(
                         f"{a.photographer.name if a.photographer else 'photographer'}: {err or 'unknown'}"
                     )
                     continue
+                # Cache the count so subsequent searches in the TTL window
+                # don't re-hit GeoSnapShot's API.
+                a.gallery_photo_count = int(count)
+                a.gallery_checked_at = _now
                 extra_results.append({
                     "assignment_id": a.id,
                     "photographer": {
@@ -709,9 +734,11 @@ async def face_search(
                     "error": None,
                     "platform": "geosnapshot",
                     "info_only": True,
-                    "coverage_status": "BROWSE_ONLY",
+                    "coverage_status": _coverage_status(False, 0, count),
                     "photo_count": count,
                 })
+        # Persist any newly-cached counts in the same commit batch.
+        db.commit()
 
     # Catch-all for OTHER non-photohawk galleries (Pixieset/RKShoots, custom
     # photographer sites, etc.) — anything we couldn't auto-resolve and isn't
@@ -837,7 +864,8 @@ async def face_search(
             "match_count": len(slim),
             "matches": slim[:50],  # cap per-photog to keep payload small
             "error": err,
-            "coverage_status": _coverage_status(True, len(slim)),
+            "coverage_status": _coverage_status(True, len(slim), a.gallery_photo_count),
+            "photo_count": a.gallery_photo_count,
             "platform": "photohawk",
         })
 
