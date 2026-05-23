@@ -172,6 +172,11 @@ def embed_selfie_via_proxy(
 
     req = _urlreq.Request(url, data=image_bytes, method="POST")
     req.add_header("Content-Type", content_type)
+    # Cloudflare blocks the default Python-urllib UA with error 1010 — set
+    # a proper UA so traffic to the tunnel passes the browser-integrity
+    # check. The token still gates actual access on the server side.
+    req.add_header("User-Agent", "MarathonHub-Backend/1.0")
+    req.add_header("Accept", "application/json")
     token = os.getenv("FACES_EMBED_TOKEN", "").strip()
     if token:
         req.add_header("Authorization", f"Bearer {token}")
