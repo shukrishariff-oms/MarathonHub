@@ -684,8 +684,17 @@ async def face_search(
                 thumb = None
             else:
                 continue
-            if guid:
-                slim.append({"guid": guid, "score": score, "thumbnail_url": thumb})
+            if not guid:
+                continue
+            # Photohawk often returns flat GUID strings (no thumbnailUrl).
+            # Build a hot-linkable thumbnail via mediav2 using the same
+            # tenant_guid we resolved for the cover. Works for any photo
+            # GUID in that tenant — no auth required.
+            if not thumb and a.tenant_guid:
+                thumb = photohawk.cover_thumbnail_url(
+                    a.tenant_guid, guid, resolution=400,
+                )
+            slim.append({"guid": guid, "score": score, "thumbnail_url": thumb})
         total_matches += len(slim)
         results.append({
             "assignment_id": a.id,
