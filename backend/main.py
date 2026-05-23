@@ -640,19 +640,6 @@ async def face_search(
     # info to each result block.
     by_engine = {a.engine_guid: a for a in assignments if a.engine_guid}
 
-    # TEMP DEBUG: log first match shape per engine so we know if Photohawk
-    # returns dicts (with thumbnailUrl) or flat strings.
-    try:
-        import logging as _lg
-        _lg.getLogger("uvicorn.error").info(
-            "[face-search-debug] raw_results sample shape: %s",
-            {k: (type(v.get("matches",[])[0]).__name__ if v.get("matches") else "empty",
-                 (v.get("matches") or [None])[0])
-             for k, v in list(raw_results.items())[:3]},
-        )
-    except Exception:
-        pass
-
     results = []
     total_matches = 0
     errors = list(resolve_errors)
@@ -677,24 +664,13 @@ async def face_search(
             if isinstance(m, dict):
                 guid = m.get("guid")
                 score = m.get("matchScore") or m.get("score")
-                thumb = m.get("thumbnailUrl") or m.get("thumbnail_url")
             elif isinstance(m, str):
                 guid = m
                 score = None
-                thumb = None
             else:
                 continue
-            if not guid:
-                continue
-            # Photohawk often returns flat GUID strings (no thumbnailUrl).
-            # Build a hot-linkable thumbnail via mediav2 using the same
-            # tenant_guid we resolved for the cover. Works for any photo
-            # GUID in that tenant — no auth required.
-            if not thumb and a.tenant_guid:
-                thumb = photohawk.cover_thumbnail_url(
-                    a.tenant_guid, guid, resolution=400,
-                )
-            slim.append({"guid": guid, "score": score, "thumbnail_url": thumb})
+            if guid:
+                slim.append({"guid": guid, "score": score})
         total_matches += len(slim)
         results.append({
             "assignment_id": a.id,

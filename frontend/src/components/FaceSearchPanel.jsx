@@ -321,103 +321,49 @@ export default function FaceSearchPanel({ event, assignments }) {
                             </div>
 
                             {photographersWithMatches.length > 0 && (
-                                <div className="space-y-3">
+                                <div className="grid gap-3 md:grid-cols-2">
                                     {photographersWithMatches.map((r) => {
-                                        const matches = r.matches || [];
-                                        const guids = matches.map(m => m.guid).filter(Boolean);
-                                        const allLink = guids.length
-                                            ? `${r.gallery_url}?guids=${guids.slice(0, 50).join(',')}`
+                                        const guids = (r.matches || []).map(m => m.guid).filter(Boolean);
+                                        const deepLink = guids.length
+                                            ? `${r.gallery_url}?guids=${guids.slice(0, 20).join(',')}`
                                             : r.gallery_url;
-                                        const trackClick = (path, label) => {
-                                            api.post('/track', {
-                                                path,
-                                                entity_type: 'photographer',
-                                                entity_id: r.photographer.id,
-                                                event_id: event.id,
-                                                meta: label,
-                                            }).catch(() => {});
-                                        };
                                         return (
-                                            <div
+                                            <a
                                                 key={r.assignment_id}
-                                                className="rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/40 transition-all overflow-hidden"
+                                                href={deepLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => {
+                                                    api.post('/track', {
+                                                        path: deepLink,
+                                                        entity_type: 'photographer',
+                                                        entity_id: r.photographer.id,
+                                                        event_id: event.id,
+                                                    }).catch(() => {});
+                                                }}
+                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/40 hover:bg-white/[0.05] transition-all"
                                             >
-                                                {/* Header — photographer + open-all CTA */}
-                                                <a
-                                                    href={allLink}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    onClick={() => trackClick(allLink, 'open_all')}
-                                                    className="group flex items-center gap-3 p-4 hover:bg-white/[0.02]"
-                                                >
-                                                    {r.photographer.logo_url ? (
-                                                        <img
-                                                            src={r.photographer.logo_url}
-                                                            alt={r.photographer.name}
-                                                            className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                            <Camera className="w-5 h-5 text-primary/60" />
-                                                        </div>
-                                                    )}
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-white font-black text-sm uppercase italic truncate">
-                                                            {r.photographer.name}
-                                                        </p>
-                                                        <p className="text-[11px] text-primary font-bold uppercase tracking-widest">
-                                                            {r.match_count} gambar match · klik untuk beli
-                                                        </p>
-                                                    </div>
-                                                    <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
-                                                </a>
-
-                                                {/* Thumbnail strip — click satu gambar
-                                                    → deep-link ke photohawk gallery
-                                                    filtered ke photo tu je. */}
-                                                {matches.some(m => m.thumbnail_url) && (
-                                                    <div className="px-4 pb-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                                        {matches.slice(0, 12).map((m) => {
-                                                            if (!m.thumbnail_url) return null;
-                                                            const oneLink = `${r.gallery_url}?guids=${m.guid}`;
-                                                            return (
-                                                                <a
-                                                                    key={m.guid}
-                                                                    href={oneLink}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={() => trackClick(oneLink, 'open_one')}
-                                                                    className="group relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-primary transition-all"
-                                                                >
-                                                                    <img
-                                                                        src={m.thumbnail_url}
-                                                                        alt={`Match ${m.guid.slice(0, 8)}`}
-                                                                        loading="lazy"
-                                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-1">
-                                                                        <span className="text-[9px] font-black uppercase tracking-wider text-primary">
-                                                                            Beli →
-                                                                        </span>
-                                                                    </div>
-                                                                </a>
-                                                            );
-                                                        })}
-                                                        {matches.length > 12 && (
-                                                            <a
-                                                                href={allLink}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                onClick={() => trackClick(allLink, 'open_more')}
-                                                                className="aspect-square rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all flex flex-col items-center justify-center gap-1 text-primary"
-                                                            >
-                                                                <span className="text-base font-black">+{matches.length - 12}</span>
-                                                                <span className="text-[9px] font-bold uppercase tracking-wider">lagi</span>
-                                                            </a>
-                                                        )}
+                                                {r.photographer.logo_url ? (
+                                                    <img
+                                                        src={r.photographer.logo_url}
+                                                        alt={r.photographer.name}
+                                                        className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                        <Camera className="w-5 h-5 text-primary/60" />
                                                     </div>
                                                 )}
-                                            </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-black text-sm uppercase italic truncate">
+                                                        {r.photographer.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-primary font-bold uppercase tracking-widest">
+                                                        {r.match_count} gambar match
+                                                    </p>
+                                                </div>
+                                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
+                                            </a>
                                         );
                                     })}
                                 </div>
