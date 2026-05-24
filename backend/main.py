@@ -648,11 +648,16 @@ async def face_search(
                 a.gallery_checked_at = _now
         db.commit()
 
-    # Build fan-out list: only assignments with a resolved engine_guid.
+    # Build fan-out list: ANY assignment with a Photohawk-format gallery URL.
+    # Cloud Run search uses (hostname, slug) extracted from the URL — it does
+    # NOT need engine_guid. So even assignments whose gallery 500s on the
+    # __NEXT_DATA__ resolve path can still face-search via Cloud Run.
+    # We still try to resolve engine_guid earlier (above) for cover thumbnails
+    # + photo counts, but a failed resolve no longer blocks face search.
     fanout = [
-        (a.engine_guid, a.gallery_url)
+        (a.engine_guid or f"aid-{a.id}", a.gallery_url)
         for a in assignments
-        if a.engine_guid and a.gallery_url
+        if a.gallery_url and photohawk.is_photohawk_gallery_url(a.gallery_url)
     ]
 
     # Coverage status helper — used for BOTH photohawk and non-photohawk
