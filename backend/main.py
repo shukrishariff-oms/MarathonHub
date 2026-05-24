@@ -1358,25 +1358,43 @@ def _build_event_meta(event):
     if date_myt:
         date_str = date_myt.strftime("%d %B %Y")
 
-    # Count assignments
-    assignment_count = len(getattr(event, "assignments", []) or [])
+    # Count assignments + collect photographer names (limit 12 for body)
+    assignments = list(getattr(event, "assignments", []) or [])
+    assignment_count = len(assignments)
+    photog_names = []
+    for a in assignments:
+        p = getattr(a, "photographer", None)
+        if p and getattr(p, "name", None):
+            photog_names.append(p.name)
+    photog_names = photog_names[:12]
 
-    title = f"{name} - Race Photos | MarathonHub"
-    if assignment_count > 0:
-        description = f"{assignment_count} photographer{'s' if assignment_count != 1 else ''} cover {name}"
-    else:
-        description = f"{name}"
+    # Title: front-load name + date + Malay keyword for SERP
+    parts = [name]
     if date_str:
-        description += f" on {date_str}"
+        parts.append(date_str)
+    if location and location.lower() != "malaysia":
+        parts.append(location)
+    title = f"{' · '.join(parts)} — Cari Gambar Larian | MarathonHub"
+
+    # Description: bilingual MS + EN keyword stuffing (natural, not spam)
+    desc_bits = [f"Cari gambar larian {name}"]
+    if date_str:
+        desc_bits.append(f"({date_str})")
     if location:
-        description += f" at {location}"
-    description += ". Find your race photos on MarathonHub."
+        desc_bits.append(f"di {location}.")
+    else:
+        desc_bits.append(".")
+    if assignment_count > 0:
+        plural = "jurugambar" if assignment_count == 1 else f"{assignment_count} jurugambar"
+        desc_bits.append(f"{plural} marathon — selfie face-search percuma.")
+    desc_bits.append("Race photos, marathon photographer Malaysia. MarathonHub.")
+    description = " ".join(desc_bits)
 
     url = f"{SITE_URL}/events/{event.id}"
-    # Use dynamic OG image with photographer list (falls back to static if generation fails)
     image = f"{SITE_URL}/api/og/event/{event.id}.png"
 
-    json_ld = {
+    # JSON-LD: SportsEvent + BreadcrumbList for richer SERP
+    sports_event_ld = {
         "@context": "https://schema.org",
         "@type": "SportsEvent",
         "name": name,
@@ -1386,22 +1404,45 @@ def _build_event_meta(event):
     }
     if date_str and date_myt:
         try:
-            json_ld["startDate"] = date_myt.strftime("%Y-%m-%dT%H:%M:%S+08:00")
+            sports_event_ld["startDate"] = date_myt.strftime("%Y-%m-%dT%H:%M:%S+08:00")
         except Exception:
             pass
     if event.description:
-        json_ld["description"] = event.description[:300]
+        sports_event_ld["description"] = event.description[:300]
+    if photog_names:
+        sports_event_ld["performer"] = [
+            {"@type": "Organization", "name": n} for n in photog_names
+        ]
 
-    # Body fallback for crawlers
+    breadcrumb_ld = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL},
+            {"@type": "ListItem", "position": 2, "name": "Events", "item": f"{SITE_URL}/events"},
+            {"@type": "ListItem", "position": 3, "name": name, "item": url},
+        ],
+    }
+    json_ld = [sports_event_ld, breadcrumb_ld]
+
+    # Body fallback: rich keyword-bearing HTML for crawlers
     body_lines = [f"<h1>{_esc(name)}</h1>"]
     if date_str:
-        body_lines.append(f"<p>Date: {_esc(date_str)}</p>")
+        body_lines.append(f"<p><strong>Tarikh:</strong> {_esc(date_str)}</p>")
     if location:
-        body_lines.append(f"<p>Location: {_esc(location)}</p>")
+        body_lines.append(f"<p><strong>Lokasi:</strong> {_esc(location)}</p>")
     if event.description:
         body_lines.append(f"<p>{_esc(event.description[:500])}</p>")
-    if assignment_count > 0:
-        body_lines.append(f"<p>{assignment_count} photographer(s) covering this event.</p>")
+    if photog_names:
+        body_lines.append(f"<h2>Jurugambar yang meliputi {_esc(name)}</h2>")
+        body_lines.append("<ul>" + "".join(
+            f"<li>{_esc(n)} — gambar larian {_esc(name)}</li>" for n in photog_names
+        ) + "</ul>")
+    body_lines.append(
+        f"<p>Cari gambar larian {_esc(name)} dengan face-search percuma di MarathonHub. "
+        f"Race photos for {_esc(name)}, covered by {assignment_count} marathon photographer"
+        f"{'s' if assignment_count != 1 else ''} in Malaysia.</p>"
+    )
     body_extra = "\n    ".join(body_lines)
 
     return title, description, url, image, json_ld, body_extra
