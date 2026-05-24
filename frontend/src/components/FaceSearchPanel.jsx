@@ -314,7 +314,7 @@ export default function FaceSearchPanel({ event, assignments }) {
                                         </>
                                     ) : (
                                         <span className="text-slate-400">
-                                            Tak jumpa match automatik. Cuba selfie yang clear, atau browse manual photographer di bawah.
+                                            Tak jumpa match automatik. Cuba selfie yang clear, atau cari di platform photographer di bawah.
                                         </span>
                                     )}
                                 </p>
@@ -476,7 +476,7 @@ export default function FaceSearchPanel({ event, assignments }) {
                                         Photographer mungkin masih upload ({indexingResults.length})
                                     </p>
                                     <p className="text-[11px] text-slate-400 font-medium -mt-1">
-                                        Event baru je habis. Cuba semak balik dalam beberapa jam, atau browse gallery sendiri ↓
+                                        Event baru je habis. Cuba semak balik dalam beberapa jam, atau cari di platform photographer ↓
                                     </p>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {indexingResults.map((r) => (
@@ -511,7 +511,7 @@ export default function FaceSearchPanel({ event, assignments }) {
                                                         {r.photographer.name}
                                                     </p>
                                                     <p className="text-[11px] text-amber-300 font-bold uppercase tracking-widest">
-                                                        Mungkin masih upload · browse manual
+                                                        Mungkin masih upload · cari di platform mereka
                                                     </p>
                                                 </div>
                                                 <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors flex-shrink-0" />
@@ -567,8 +567,8 @@ export default function FaceSearchPanel({ event, assignments }) {
                                                     </p>
                                                     <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
                                                         {r.photo_count
-                                                            ? `${r.photo_count.toLocaleString()} keping · cari manual`
-                                                            : 'Browse manual ↗'}
+                                                            ? `${r.photo_count.toLocaleString()} keping · cari di platform mereka`
+                                                            : 'Cari di platform mereka ↗'}
                                                     </p>
                                                 </div>
                                                 <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
