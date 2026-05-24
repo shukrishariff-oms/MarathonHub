@@ -331,10 +331,14 @@ export default function FaceSearchPanel({ event, assignments }) {
                             {matchesResults.length > 0 && (
                                 <div className="space-y-3">
                                     {matchesResults.map((r) => {
-                                        const guids = (r.matches || []).map(m => m.guid).filter(Boolean);
-                                        const deepLink = guids.length
-                                            ? `${r.gallery_url}?guids=${guids.slice(0, 20).join(',')}`
-                                            : r.gallery_url;
+                                        // Photohawk SPA does NOT honour our self-invented
+                                        // `?guids=...` deep-link param the way we hoped — it
+                                        // gets interpreted as a hard filter and renders an
+                                        // empty gallery ("no photos uploaded yet") even when
+                                        // the gallery has thousands of photos. Plain gallery
+                                        // URL it is. The runner can scroll/filter inside the
+                                        // photographer's own UI.
+                                        const deepLink = r.gallery_url;
                                         // Cap visible thumbnails to 6 per photog —
                                         // enough to confirm match, not enough to skip
                                         // paying for the rest.
