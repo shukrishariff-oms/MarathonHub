@@ -113,7 +113,9 @@ def _http_post_json(url: str, payload: dict,
 # ─── Gallery URL → engine_guid resolver ────────────────────────────────
 
 _GALLERY_URL_RE = re.compile(
-    r"^https?://(?P<host>[a-z0-9.\-]+)/galleries/(?P<slug>[a-z0-9\-_]+)/?",
+    # Optional locale prefix (Photohawk supports /ms-my/, /en/, /en-us/, /zh-cn/...)
+    # before the canonical /galleries/<slug> path.
+    r"^https?://(?P<host>[a-z0-9.\-]+)(?:/[a-z]{2,5}(?:-[a-z]{2,5})?)?/galleries/(?P<slug>[a-z0-9\-_]+)/?",
     re.I,
 )
 _NEXT_DATA_RE = re.compile(
