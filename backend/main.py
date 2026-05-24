@@ -792,49 +792,62 @@ async def face_search(
             "errors": resolve_errors + extra_errors or ["No searchable galleries for this event."],
         }
 
-    # Run the parallel search.
-    raw_results = photohawk.fan_out_search(
-        selfie_data_url, fanout, threshold=threshold,
-    )
+    # Run the parallel search via Cloud Run endpoint — returns rich match
+    # objects with `previews.{xs,sm,md,lg,xl}.location` URLs (mediav2
+    # thumbnails) instead of bare GUIDs. We expose only the small `xs`
+    # preview to runners; full-res stays behind the photographer's paywall.
+    # `fanout` is list of (engine_guid, gallery_url) tuples — we map back
+    # to assignment.id since cloudrun keys responses by aid.
+    aid_to_assignment = {}
+    cloudrun_galleries = []
+    for engine_guid, gallery_url in fanout:
+        # Find the assignment row for this engine
+        for a in assignments:
+            if a.engine_guid == engine_guid:
+                aid_to_assignment[a.id] = a
+                cloudrun_galleries.append((a.id, gallery_url))
+                break
 
-    # Reverse-map engine_guid → assignment so we can attach photographer
-    # info to each result block.
-    by_engine = {a.engine_guid: a for a in assignments if a.engine_guid}
+    raw_results = photohawk.fan_out_search_cloudrun(
+        selfie_data_url, cloudrun_galleries,
+    )
 
     results = []
     total_matches = 0
     errors = list(resolve_errors)
-    for engine_guid, block in raw_results.items():
-        a = by_engine.get(engine_guid)
+    for aid, block in raw_results.items():
+        a = aid_to_assignment.get(aid)
         if not a or not a.photographer:
             continue
-        matches = block.get("matches") or []
+        hits = block.get("hits") or []
         err = block.get("error")
         if err:
             errors.append(
                 f"{a.photographer.name}: {err}"
             )
-        # Trim match payload to what the UI actually needs (Photohawk
-        # returns extra signed-URL fields per hit, which we hide — runner
-        # has to click through to the gallery to view full photos).
-        # Defensive: Photohawk's actual response shape varies — some
-        # tenants return a list of dicts ({guid, matchScore}), others
-        # return a flat list of GUID strings. Handle both.
+        # Slim down hit payload — keep ONLY xs preview (small thumbnail) so
+        # runners can confirm a match visually without us undercutting the
+        # photographer's paid prints. Full-res `xl` stays out of our API
+        # response entirely. Score+filename also kept for UI sorting.
         slim = []
-        for m in matches:
-            if isinstance(m, dict):
-                guid = m.get("guid")
-                score = m.get("matchScore") or m.get("score")
-            elif isinstance(m, str):
-                guid = m
-                score = None
-            else:
+        for hit in hits:
+            if not isinstance(hit, dict):
                 continue
-            if guid:
-                slim.append({"guid": guid, "score": score})
-        # Audit log: per-engine match summary (for tuning false-positives).
-        # Score values logged so we can spot loose-threshold complaints
-        # without keeping selfie bytes anywhere.
+            guid = hit.get("guid")
+            if not guid:
+                continue
+            previews = hit.get("previews") or {}
+            xs = (previews.get("xs") or {}).get("location")
+            sm = (previews.get("sm") or {}).get("location")
+            # Use sm only as fallback if xs missing; never expose md/lg/xl.
+            thumb_url = xs or sm
+            score = hit.get("matchScore") or hit.get("score")
+            slim.append({
+                "guid": guid,
+                "score": score,
+                "thumbnail_url": thumb_url,
+                "name": hit.get("name"),
+            })
         if slim:
             scores = [s["score"] for s in slim if s.get("score") is not None]
             score_summary = (

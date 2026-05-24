@@ -23,6 +23,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 SEARCH_API = "https://search.api.photohawk.com"
+# Photohawk's newer Cloud Run search endpoint — returns rich match objects
+# with `previews.{xs,sm,md,lg,xl}.location` URLs (mediav2 thumbnails) instead
+# of bare match-id GUIDs. Per-gallery search (slug+hostname), not engine batch.
+# Discovered via raceday.my reverse-engineering — same endpoint they use.
+SEARCH_API_CLOUDRUN = (
+    "https://photohawk-search-893584157698.asia-southeast1.run.app"
+)
 ASSETS_CDN = "https://assets.photohawk.com"
 IMGIX_CDN = "https://photohawk-prod.imgix.net"
 TIMEOUT = 10  # per-HTTP-call cap; tight enough that fan-out doesn't
@@ -314,4 +321,123 @@ def fan_out_search(selfie_data_url: str,
         for fu in as_completed(futures):
             guid, result = fu.result()
             out[guid] = result
+    return out
+
+
+# ─── Cloud Run search (rich response with thumbnail URLs) ──────────────
+
+def _gallery_url_to_hostname_slug(url: str) -> tuple[str, str] | None:
+    """Extract (hostname, slug) from a /galleries/<slug> URL. Returns None
+    if the URL isn't recognisable as a gallery URL."""
+    m = _GALLERY_URL_RE.match(url.strip())
+    if not m:
+        return None
+    return m.group("host"), m.group("slug")
+
+
+def search_gallery_cloudrun(selfie_data_url: str, hostname: str, slug: str,
+                            device: str = "desktop",
+                            timeout: int | None = None) -> list[dict]:
+    """Per-gallery face search via Photohawk's Cloud Run endpoint.
+
+    Returns a list of rich hit dicts. Each hit includes `previews` with
+    multiple resolutions (`xs`, `sm`, `md`, `lg`, `xl`) — each having a
+    `.location` URL that points at mediav2.photohawk.com (hot-linkable, no
+    auth). The `xs` preview is small enough that displaying it on
+    MarathonHub doesn't undercut the photographer's paid prints.
+
+    NOTE: This is a separate endpoint from `search.api.photohawk.com`.
+    Discovered via raceday.my (which uses the exact same endpoint).
+    Body shape:
+      {
+        "slug": "<gallery-slug>",
+        "hostname": "<photog>.photohawk.com",
+        "device": "desktop" | "mobile",
+        "format": "jpg",
+        "groups": [{"text": null, "selfie": "<data:image/...;base64,...>"}]
+      }
+    Response shape:
+      {
+        "photos": {
+          "total": N,
+          "hits": [
+            {
+              "guid": "<photo-guid>",
+              "name": "<filename>",
+              "previews": {
+                "xs": {"location": "https://mediav2.photohawk.com?...", "width": ..., "height": ...},
+                "sm": {...}, "md": {...}, "lg": {...}, "xl": {...}
+              }
+            }, ...
+          ]
+        },
+        ...
+      }
+    """
+    body = json.dumps({
+        "slug": slug,
+        "hostname": hostname,
+        "device": device,
+        "format": "jpg",
+        "groups": [{"text": None, "selfie": selfie_data_url}],
+    }).encode()
+    headers = {
+        "User-Agent": UA,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        # Match the Origin raceday.my uses; Cloud Run endpoint allows it.
+        "Origin": "https://raceday.my",
+    }
+    req = urllib.request.Request(
+        f"{SEARCH_API_CLOUDRUN}/api/galleries/search",
+        data=body, headers=headers, method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout or TIMEOUT) as r:
+            data = json.loads(_gunzip(r.read()).decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        b = _gunzip(e.read())[:300].decode("utf-8", "replace")
+        raise PhotohawkError(f"HTTP {e.code} from cloudrun search: {b}") from e
+    except urllib.error.URLError as e:
+        raise PhotohawkError(f"Network error on cloudrun search: {e}") from e
+
+    photos = (data or {}).get("photos") or {}
+    hits = photos.get("hits") or []
+    return hits
+
+
+def fan_out_search_cloudrun(selfie_data_url: str,
+                            galleries: list[tuple[str, str]],
+                            max_workers: int = 8) -> dict[str, dict]:
+    """Parallel face search across multiple galleries via Cloud Run endpoint.
+
+    Args:
+      galleries: list of (assignment_id, gallery_url) tuples. Each gallery
+        is searched independently. The assignment_id keys the response so
+        callers can join back to photographer rows.
+
+    Returns dict mapping assignment_id → {"hits": [...], "error": str|None}.
+    """
+    out: dict[str, dict] = {}
+    if not galleries:
+        return out
+
+    def _one(item: tuple[str, str]) -> tuple[str, dict]:
+        aid, gallery_url = item
+        parsed = _gallery_url_to_hostname_slug(gallery_url)
+        if not parsed:
+            return aid, {"hits": [], "error": "not a gallery URL"}
+        hostname, slug = parsed
+        try:
+            hits = search_gallery_cloudrun(selfie_data_url, hostname, slug)
+            return aid, {"hits": hits, "error": None}
+        except PhotohawkError as e:
+            return aid, {"hits": [], "error": str(e)}
+
+    workers = min(max_workers, len(galleries))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(_one, item) for item in galleries]
+        for fu in as_completed(futures):
+            aid, result = fu.result()
+            out[aid] = result
     return out

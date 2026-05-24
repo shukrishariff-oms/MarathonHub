@@ -329,49 +329,134 @@ export default function FaceSearchPanel({ event, assignments }) {
                             </div>
 
                             {matchesResults.length > 0 && (
-                                <div className="grid gap-3 md:grid-cols-2">
+                                <div className="space-y-3">
                                     {matchesResults.map((r) => {
                                         const guids = (r.matches || []).map(m => m.guid).filter(Boolean);
                                         const deepLink = guids.length
                                             ? `${r.gallery_url}?guids=${guids.slice(0, 20).join(',')}`
                                             : r.gallery_url;
+                                        // Cap visible thumbnails to 6 per photog —
+                                        // enough to confirm match, not enough to skip
+                                        // paying for the rest.
+                                        const visibleThumbs = (r.matches || [])
+                                            .filter(m => m.thumbnail_url)
+                                            .slice(0, 6);
+                                        const moreCount = r.match_count - visibleThumbs.length;
+                                        const trackClick = () => {
+                                            api.post('/track', {
+                                                path: deepLink,
+                                                entity_type: 'photographer',
+                                                entity_id: r.photographer.id,
+                                                event_id: event.id,
+                                            }).catch(() => {});
+                                        };
                                         return (
-                                            <a
+                                            <div
                                                 key={r.assignment_id}
-                                                href={deepLink}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={() => {
-                                                    api.post('/track', {
-                                                        path: deepLink,
-                                                        entity_type: 'photographer',
-                                                        entity_id: r.photographer.id,
-                                                        event_id: event.id,
-                                                    }).catch(() => {});
-                                                }}
-                                                className="group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/40 hover:bg-white/[0.05] transition-all"
+                                                className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden"
                                             >
-                                                {r.photographer.logo_url ? (
-                                                    <img
-                                                        src={r.photographer.logo_url}
-                                                        alt={r.photographer.name}
-                                                        className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                        <Camera className="w-5 h-5 text-primary/60" />
+                                                {/* Photog header */}
+                                                <a
+                                                    href={deepLink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={trackClick}
+                                                    className="group flex items-center gap-3 p-4 hover:bg-white/[0.03] transition-colors"
+                                                >
+                                                    {r.photographer.logo_url ? (
+                                                        <img
+                                                            src={r.photographer.logo_url}
+                                                            alt={r.photographer.name}
+                                                            className="w-12 h-12 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                            <Camera className="w-5 h-5 text-primary/60" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-white font-black text-sm uppercase italic truncate">
+                                                            {r.photographer.name}
+                                                        </p>
+                                                        <p className="text-[11px] text-primary font-bold uppercase tracking-widest">
+                                                            {r.match_count} gambar match · klik untuk beli ↗
+                                                        </p>
+                                                    </div>
+                                                    <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
+                                                </a>
+
+                                                {/* Thumbnail strip — preview-only, watermarked,
+                                                    download-protected. Clicks bounce to gallery,
+                                                    NOT a full-res lightbox. */}
+                                                {visibleThumbs.length > 0 && (
+                                                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-black/20">
+                                                        {visibleThumbs.map((m, i) => (
+                                                            <a
+                                                                key={m.guid || i}
+                                                                href={deepLink}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={trackClick}
+                                                                onContextMenu={(e) => e.preventDefault()}
+                                                                draggable={false}
+                                                                className="relative aspect-square overflow-hidden rounded-md group select-none"
+                                                                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                                                                title="Klik untuk beli di photographer"
+                                                            >
+                                                                <img
+                                                                    src={m.thumbnail_url}
+                                                                    alt="match preview"
+                                                                    loading="lazy"
+                                                                    draggable={false}
+                                                                    onContextMenu={(e) => e.preventDefault()}
+                                                                    onDragStart={(e) => e.preventDefault()}
+                                                                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                                                                    style={{ WebkitUserDrag: 'none', WebkitTouchCallout: 'none' }}
+                                                                />
+                                                                {/* Diagonal watermark — repeating pattern,
+                                                                    can't be cropped out cleanly. */}
+                                                                <div
+                                                                    className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                                                                    style={{
+                                                                        background: `repeating-linear-gradient(
+                                                                            -25deg,
+                                                                            transparent 0,
+                                                                            transparent 20px,
+                                                                            rgba(0,0,0,0.18) 20px,
+                                                                            rgba(0,0,0,0.18) 21px
+                                                                        )`,
+                                                                    }}
+                                                                />
+                                                                <div
+                                                                    className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                                                                    style={{ transform: 'rotate(-25deg)' }}
+                                                                >
+                                                                    <span className="text-white/70 text-[8px] font-black uppercase tracking-widest whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                                                                        MARATHONHUB · BELI DI {r.photographer.name.toUpperCase()}
+                                                                    </span>
+                                                                </div>
+                                                                {/* Hover overlay → CTA */}
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-1">
+                                                                    <span className="text-[8px] font-black text-primary uppercase tracking-widest">
+                                                                        Beli ↗
+                                                                    </span>
+                                                                </div>
+                                                            </a>
+                                                        ))}
                                                     </div>
                                                 )}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-white font-black text-sm uppercase italic truncate">
-                                                        {r.photographer.name}
-                                                    </p>
-                                                    <p className="text-[11px] text-primary font-bold uppercase tracking-widest">
-                                                        {r.match_count} gambar match
-                                                    </p>
-                                                </div>
-                                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors flex-shrink-0" />
-                                            </a>
+                                                {moreCount > 0 && (
+                                                    <a
+                                                        href={deepLink}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={trackClick}
+                                                        className="block px-4 py-2 text-center text-[11px] text-primary font-bold uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-colors border-t border-white/5"
+                                                    >
+                                                        + {moreCount} gambar lagi · buka gallery {r.photographer.name} ↗
+                                                    </a>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
