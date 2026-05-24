@@ -869,8 +869,16 @@ async def face_search(
             "platform": "photohawk",
         })
 
-    # Sort: most matches first, then alphabetical for ties.
-    results.sort(key=lambda r: (-r["match_count"], r["photographer"]["name"] or ""))
+    # Sort: pinned photographers first, then most matches, then alphabetical.
+    # OhmaiShoot (and any future pinned photog) always surfaces at the top
+    # so Syuk's own gallery doesn't get buried below higher-volume rivals.
+    OHMAISHOOT_NAME = "OhmaiShoot"
+    def _sort_key(r):
+        photog = r.get("photographer") or {}
+        name = photog.get("name") or ""
+        is_pinned = (name == OHMAISHOOT_NAME)
+        return (0 if is_pinned else 1, -r["match_count"], name)
+    results.sort(key=_sort_key)
 
     # Combine: photohawk results (with matches potential) + browse-only blocks.
     # Browse-only goes after photohawk so the search-capable photogs surface first.
