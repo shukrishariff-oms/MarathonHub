@@ -522,15 +522,16 @@ export default function FaceSearchPanel({ event, assignments }) {
                             )}
 
                             {/* BROWSE_ONLY — gallery host takde face search built-in
-                                (geosnapshot, pixieset, custom). Photographer tetap
-                                deserve nampak — runner browse manual. */}
+                                via Photohawk Cloud Run. Tapi kebanyakan platform
+                                (geosnapshot, smartpix, harimau.run) ada face-search
+                                sendiri. Tunjuk CTA action-oriented, bukan "tak sokong". */}
                             {browseOnlyResults.length > 0 && (
                                 <div className="space-y-2">
                                     <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest pt-1">
-                                        Photographer tanpa face-search ({browseOnlyResults.length})
+                                        Cari di platform photographer ({browseOnlyResults.length})
                                     </p>
                                     <p className="text-[11px] text-slate-500 font-medium -mt-1">
-                                        Platform mereka tak sokong face search. Browse gallery sendiri.
+                                        Photographer ni guna platform berasingan. Klik untuk cari muka anda di platform mereka.
                                     </p>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {browseOnlyResults.map((r) => (
