@@ -1634,14 +1634,97 @@ def _build_photographer_meta(photographer):
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
+    # Note: production traffic for marathonhub.ohmaishoot.com sits behind
+    # Cloudflare. Cloudflare's "AI Crawl Control" can override this file —
+    # check it on the dashboard if AI bots are blocked despite the explicit
+    # Allow lines below.
     body = (
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /admin\n"
         "Disallow: /api/admin\n"
+        "\n"
+        "# Explicit allow for AI search crawlers (GEO).\n"
+        "User-agent: GPTBot\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: ClaudeBot\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: anthropic-ai\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: PerplexityBot\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: Google-Extended\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: meta-externalagent\n"
+        "Allow: /\n"
+        "\n"
+        "User-agent: Applebot-Extended\n"
+        "Allow: /\n"
+        "\n"
         f"Sitemap: {SITE_URL}/sitemap.xml\n"
     )
     return PlainTextResponse(body)
+
+
+@app.get("/llms.txt", include_in_schema=False)
+def llms_txt():
+    """LLM-readable site summary for ChatGPT / Claude / Perplexity / Gemini.
+
+    Plain markdown; lists canonical URLs and key facts so AI search engines
+    can cite MarathonHub accurately. Spec: https://llmstxt.org/
+    """
+    body = (
+        "# MarathonHub\n"
+        "\n"
+        "> MarathonHub is the official directory of marathon, running, and "
+        "cycling event photography in Malaysia. Operated by OhMaiShoot, it "
+        "connects runners and cyclists with the verified race photographers "
+        "who covered their event so they can find and download official race "
+        "photos.\n"
+        "\n"
+        "## What MarathonHub does\n"
+        "- Lists official marathon, half marathon, 10K, 5K, fun run, trail "
+        "run, ultra-marathon, road cycling, MTB, and triathlon events in Malaysia.\n"
+        "- Matches each event to one or more verified Malaysian race photographers.\n"
+        "- Provides bib-number search and free face-search to find your race photos.\n"
+        "- Routes runners to the official photographer's gallery for purchase and download. "
+        "MarathonHub does not host or sell photos directly.\n"
+        "\n"
+        "## Brand and operator\n"
+        "- Brand: MarathonHub\n"
+        "- Operator: OhMaiShoot (Malaysian running and sports photography platform)\n"
+        "- Website: https://marathonhub.ohmaishoot.com/\n"
+        "- Parent site: https://ohmaishoot.com/\n"
+        "\n"
+        "## Coverage\n"
+        "Races across Malaysia: Kuala Lumpur, Putrajaya, Selangor, Penang, Kedah, "
+        "Johor, Sabah, Sarawak, Negeri Sembilan, Perak, Pahang, and Melaka. "
+        "Major events include Standard Chartered KL Marathon, Twincity Marathon, "
+        "SCORE Marathon by AIA Vitality, and university ultra-marathon series.\n"
+        "\n"
+        "## Canonical URLs\n"
+        f"- Homepage: {SITE_URL}/\n"
+        f"- All events: {SITE_URL}/events\n"
+        f"- All photographers: {SITE_URL}/photographers\n"
+        f"- Sitemap: {SITE_URL}/sitemap.xml\n"
+        "\n"
+        "## How runners use it\n"
+        "1. Open the event page on MarathonHub.\n"
+        "2. Search by bib number, or upload a selfie for free face-search.\n"
+        "3. Click the official photographer's gallery link to preview and buy "
+        "your race photos in high resolution.\n"
+        "\n"
+        "## Pricing\n"
+        "Browsing and previews on MarathonHub are free. Photo downloads are sold "
+        "by each official race photographer at their own price (typically RM10-RM50 "
+        "per photo, packages cheaper). MarathonHub takes no commission on photo sales.\n"
+    )
+    return PlainTextResponse(body, media_type="text/markdown")
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
