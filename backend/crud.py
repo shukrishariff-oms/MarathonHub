@@ -32,7 +32,13 @@ def _slugify(text: str) -> str:
 
 
 def _slug_for_event(name: str, date: datetime) -> str:
-    """Build slug base = slugified name + year (e.g. 'kedah-marathon-2026')."""
+    """Build SEO slug. Avoid duplicating the year if it's already in the name.
+
+    Examples:
+      "Twincity Marathon 2026" + 2026 -> "twincity-marathon-2026"
+      "Kedah Marathon"         + 2026 -> "kedah-marathon-2026"
+      "MyRun 2026 Edition"     + 2026 -> "myrun-2026-edition"
+    """
     base = _slugify(name)
     year = ""
     try:
@@ -44,7 +50,14 @@ def _slug_for_event(name: str, date: datetime) -> str:
                 year = ystr
     except Exception:
         pass
-    return f"{base}-{year}" if year else base
+    if not year:
+        return base
+    # Don't tack on the year if a 4-digit token matching it already
+    # appears as a separate slug segment ("…-2026", "…-2026-…", "2026-…").
+    parts = base.split("-")
+    if year in parts:
+        return base
+    return f"{base}-{year}"
 
 
 def generate_unique_slug(db: Session, name: str, date: datetime, exclude_id: int = None) -> str:

@@ -165,7 +165,9 @@ def check_and_migrate_db():
                         base = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
                         base = base[:60].strip("-") or "event"
                         if year:
-                            base = f"{base}-{year}"
+                            # Skip the year suffix when it's already a slug segment.
+                            if year not in base.split("-"):
+                                base = f"{base}-{year}"
                         return base
 
                     for row in missing:
@@ -194,7 +196,50 @@ def check_and_migrate_db():
                     print("Slug backfill complete.")
             except Exception as e:
                 print(f"Slug backfill skipped: {e}")
-                    
+
+            # One-time cleanup: re-slug events with duplicated-year slugs
+            # (e.g. "twincity-marathon-2026-2026" -> "twincity-marathon-2026").
+            # Idempotent — only matches the duplicate pattern. Safe to leave
+            # in for future boots; no-op once cleaned up.
+            try:
+                rows = conn.execute(text(
+                    "SELECT id, name, date, slug FROM events "
+                    "WHERE slug IS NOT NULL AND slug != ''"
+                )).fetchall()
+                taken = {r[3] for r in rows if r[3]}
+                rewrites = 0
+                for row in rows:
+                    eid, ename, edate, current_slug = row[0], row[1], row[2], row[3]
+                    year_str = ""
+                    try:
+                        if edate:
+                            ys = str(edate)[:4]
+                            if ys.isdigit():
+                                year_str = ys
+                    except Exception:
+                        pass
+                    if not year_str:
+                        continue
+                    dup_tail = f"-{year_str}-{year_str}"
+                    if not current_slug.endswith(dup_tail):
+                        continue
+                    canonical = current_slug[:-(len(year_str) + 1)]
+                    if not canonical or canonical == current_slug:
+                        continue
+                    if canonical in taken and canonical != current_slug:
+                        continue
+                    conn.execute(
+                        text("UPDATE events SET slug = :s WHERE id = :i"),
+                        {"s": canonical, "i": eid},
+                    )
+                    taken.discard(current_slug)
+                    taken.add(canonical)
+                    rewrites += 1
+                if rewrites:
+                    conn.commit()
+                    print(f"Slug dedup: rewrote {rewrites} duplicate-year slug(s).")
+            except Exception as e:
+                print(f"Slug dedup skipped: {e}")
     except Exception as e:
         print(f"Migration check failed: {e}")
 

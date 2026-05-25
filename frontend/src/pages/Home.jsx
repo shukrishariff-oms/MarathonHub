@@ -310,6 +310,92 @@ export default function Home() {
                 </div>
             </motion.section>
 
+            {/* SEO: About MarathonHub — entity-rich Malay+English copy
+                aimed at Google + ChatGPT/Claude/Perplexity. Plain prose
+                (no fancy framer-motion) so the crawler-prerendered HTML
+                already contains the keywords on first paint. */}
+            <section
+                aria-labelledby="about-heading"
+                className="relative max-w-5xl mx-auto px-4 py-16 md:py-24 space-y-8"
+            >
+                <div className="text-center space-y-3">
+                    <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                        About MarathonHub
+                    </p>
+                    <h2 id="about-heading" className="text-3xl md:text-5xl font-display font-black text-white tracking-tighter uppercase italic">
+                        Malaysia&rsquo;s Official Marathon &amp; Running Event Photo Platform
+                    </h2>
+                </div>
+
+                <div className="prose prose-invert max-w-none text-slate-300 font-medium leading-relaxed space-y-5 text-base md:text-lg">
+                    <p>
+                        <strong>MarathonHub</strong> is the official directory of
+                        marathon, running, and cycling event photography in
+                        Malaysia, built and operated by{' '}
+                        <strong>OhMaiShoot</strong>. We connect runners,
+                        cyclists, and weekend warriors with the verified race
+                        photographers who covered their event &mdash; so finding
+                        and downloading your official race photos takes seconds,
+                        not hours.
+                    </p>
+                    <p>
+                        Every event listed on MarathonHub is matched to one or
+                        more <strong>official Malaysian race photographers</strong>:
+                        full marathons, half marathons, 10K, 5K fun runs, trail
+                        runs, ultra-marathons, road cycling events, MTB rides,
+                        triathlons, and corporate runs. Search by event name,
+                        bib number, or upload a selfie for free face-search and
+                        we route you straight to the official photographer&rsquo;s
+                        gallery.
+                    </p>
+                    <p>
+                        We cover races across the country &mdash; Kuala Lumpur,
+                        Putrajaya, Selangor, Penang, Kedah, Johor, Sabah, and
+                        Sarawak &mdash; from major events like Standard Chartered
+                        KL Marathon and Twincity Marathon to community
+                        Sunday-morning fun runs and university ultra series.
+                        New events go live on MarathonHub as their galleries
+                        are uploaded.
+                    </p>
+                    <p>
+                        MarathonHub is part of the <strong>OhMaiShoot</strong>{' '}
+                        running &amp; sports photography ecosystem. We do not
+                        host or sell photos directly; instead we send traffic
+                        to the photographer who shot your race. That keeps the
+                        photographer&rsquo;s pricing, watermark, and gallery
+                        rules intact, and means you always buy from the original
+                        creator &mdash; never a third party reseller.
+                    </p>
+                </div>
+
+                <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <li className="rounded-2xl bg-white/5 border border-white/5 p-4">
+                        <p className="text-primary font-bold uppercase text-xs tracking-widest mb-1">
+                            For Runners
+                        </p>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                            Find your official marathon, half-marathon, 10K, and fun-run photos by event, bib, or face-search.
+                        </p>
+                    </li>
+                    <li className="rounded-2xl bg-white/5 border border-white/5 p-4">
+                        <p className="text-primary font-bold uppercase text-xs tracking-widest mb-1">
+                            For Cyclists
+                        </p>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                            Browse photos from road cycling events, MTB rides, and gran-fondos covered by Malaysian sports photographers.
+                        </p>
+                    </li>
+                    <li className="rounded-2xl bg-white/5 border border-white/5 p-4">
+                        <p className="text-primary font-bold uppercase text-xs tracking-widest mb-1">
+                            For Photographers
+                        </p>
+                        <p className="text-slate-300 font-medium leading-relaxed">
+                            Get your race-day galleries discovered. Apply via OhMaiShoot to be listed on MarathonHub.
+                        </p>
+                    </li>
+                </ul>
+            </section>
+
             {/* SEO + GEO: FAQ section — visible to humans, machine-readable
                 JSON-LD for Google rich results + AI search engines. */}
             <section
