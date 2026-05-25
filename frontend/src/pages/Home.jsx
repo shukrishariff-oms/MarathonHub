@@ -188,7 +188,7 @@ export default function Home() {
                                     <input
                                         type="text"
                                         className="w-full pl-14 pr-4 py-4 bg-transparent text-white placeholder:text-slate-500 outline-none font-medium"
-                                        placeholder="Search events, locations, or brands..."
+                                        placeholder="Search event name, bib number or race photos"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
@@ -309,6 +309,168 @@ export default function Home() {
                     )}
                 </div>
             </motion.section>
+
+            {/* SEO + GEO: FAQ section — visible to humans, machine-readable
+                JSON-LD for Google rich results + AI search engines. */}
+            <section
+                aria-labelledby="faq-heading"
+                className="rounded-[3rem] border border-white/5 bg-ohmai-charcoal-light p-8 md:p-14"
+            >
+                <div className="max-w-3xl mx-auto space-y-10">
+                    <div className="text-center space-y-3">
+                        <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                            FAQ
+                        </p>
+                        <h2 id="faq-heading" className="text-3xl md:text-5xl font-display font-black text-white tracking-tighter uppercase italic">
+                            How MarathonHub Works
+                        </h2>
+                        <p className="text-slate-400 font-medium">
+                            Quick answers about searching and downloading official marathon and running event photos in Malaysia.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <details className="group rounded-2xl bg-white/5 border border-white/5 p-5 open:border-primary/30 transition-colors">
+                            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-white font-bold">
+                                <span>How do I search my marathon photos?</span>
+                                <span aria-hidden="true" className="text-primary transition-transform group-open:rotate-45">+</span>
+                            </summary>
+                            <p className="mt-3 text-slate-300 font-medium leading-relaxed">
+                                Open the event page on MarathonHub, then use either the bib-number search or upload a selfie for free face-search.
+                                MarathonHub then routes you to the official photographer&rsquo;s gallery where your race photos can be previewed and bought.
+                            </p>
+                        </details>
+
+                        <details className="group rounded-2xl bg-white/5 border border-white/5 p-5 open:border-primary/30 transition-colors">
+                            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-white font-bold">
+                                <span>When are race photos uploaded after the event?</span>
+                                <span aria-hidden="true" className="text-primary transition-transform group-open:rotate-45">+</span>
+                            </summary>
+                            <p className="mt-3 text-slate-300 font-medium leading-relaxed">
+                                Most official race photographers in Malaysia upload finish-line and on-course photos within 24&ndash;72 hours of the event.
+                                Larger marathons may take up to a week. MarathonHub auto-updates each event page as the official galleries go live.
+                            </p>
+                        </details>
+
+                        <details className="group rounded-2xl bg-white/5 border border-white/5 p-5 open:border-primary/30 transition-colors">
+                            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-white font-bold">
+                                <span>Are the marathon photos free to view?</span>
+                                <span aria-hidden="true" className="text-primary transition-transform group-open:rotate-45">+</span>
+                            </summary>
+                            <p className="mt-3 text-slate-300 font-medium leading-relaxed">
+                                Yes &mdash; previews are free. Each runner can browse low-resolution watermarked previews on the official photographer&rsquo;s gallery for free.
+                                High-resolution downloads are sold by each photographer at their own price (typically RM10&ndash;RM50 per photo, packages cheaper).
+                            </p>
+                        </details>
+
+                        <details className="group rounded-2xl bg-white/5 border border-white/5 p-5 open:border-primary/30 transition-colors">
+                            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-white font-bold">
+                                <span>How do I download my running event photos?</span>
+                                <span aria-hidden="true" className="text-primary transition-transform group-open:rotate-45">+</span>
+                            </summary>
+                            <p className="mt-3 text-slate-300 font-medium leading-relaxed">
+                                On the event page, click <em>Get Your Photos</em> next to the photographer covering your race.
+                                You will be taken to the official photographer&rsquo;s gallery where you can search by bib number, browse,
+                                buy, and download your high-resolution marathon photos directly &mdash; no MarathonHub account needed.
+                            </p>
+                        </details>
+
+                        <details className="group rounded-2xl bg-white/5 border border-white/5 p-5 open:border-primary/30 transition-colors">
+                            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-white font-bold">
+                                <span>Which races does MarathonHub cover in Malaysia?</span>
+                                <span aria-hidden="true" className="text-primary transition-transform group-open:rotate-45">+</span>
+                            </summary>
+                            <p className="mt-3 text-slate-300 font-medium leading-relaxed">
+                                MarathonHub indexes official marathon, half marathon, fun run, trail run, and cycling events across Malaysia &mdash;
+                                including Kuala Lumpur, Putrajaya, Penang, Kedah, Johor, Sabah, and Sarawak. Browse the
+                                <Link to="/events" className="text-primary hover:underline mx-1">events directory</Link>
+                                for the full list.
+                            </p>
+                        </details>
+                    </div>
+                </div>
+
+                {/* JSON-LD: FAQPage + WebSite SearchAction for Google rich
+                    results and AI search engines (Perplexity, Gemini, ChatGPT). */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            '@context': 'https://schema.org',
+                            '@graph': [
+                                {
+                                    '@type': 'WebSite',
+                                    '@id': 'https://marathonhub.ohmaishoot.com/#website',
+                                    url: 'https://marathonhub.ohmaishoot.com/',
+                                    name: 'MarathonHub',
+                                    description:
+                                        'Official Marathon & Running Event Photos Malaysia. Search and download marathon, fun run, cycling, and running event photos across Malaysia.',
+                                    inLanguage: ['en-MY', 'ms-MY'],
+                                    publisher: {
+                                        '@type': 'Organization',
+                                        name: 'OhMaiShoot',
+                                        url: 'https://ohmaishoot.com/',
+                                    },
+                                    potentialAction: {
+                                        '@type': 'SearchAction',
+                                        target: {
+                                            '@type': 'EntryPoint',
+                                            urlTemplate:
+                                                'https://marathonhub.ohmaishoot.com/events?search={search_term_string}',
+                                        },
+                                        'query-input': 'required name=search_term_string',
+                                    },
+                                },
+                                {
+                                    '@type': 'FAQPage',
+                                    mainEntity: [
+                                        {
+                                            '@type': 'Question',
+                                            name: 'How do I search my marathon photos?',
+                                            acceptedAnswer: {
+                                                '@type': 'Answer',
+                                                text: 'Open the event page on MarathonHub, then use bib-number search or upload a selfie for free face-search. MarathonHub routes you to the official photographer’s gallery where your race photos can be previewed and bought.',
+                                            },
+                                        },
+                                        {
+                                            '@type': 'Question',
+                                            name: 'When are race photos uploaded after the event?',
+                                            acceptedAnswer: {
+                                                '@type': 'Answer',
+                                                text: 'Most official race photographers in Malaysia upload photos within 24–72 hours of the event. MarathonHub auto-updates each event page as official galleries go live.',
+                                            },
+                                        },
+                                        {
+                                            '@type': 'Question',
+                                            name: 'Are the marathon photos free to view?',
+                                            acceptedAnswer: {
+                                                '@type': 'Answer',
+                                                text: 'Yes — low-resolution watermarked previews are free on each photographer’s official gallery. High-resolution downloads are sold by each photographer at their own price.',
+                                            },
+                                        },
+                                        {
+                                            '@type': 'Question',
+                                            name: 'How do I download my running event photos?',
+                                            acceptedAnswer: {
+                                                '@type': 'Answer',
+                                                text: 'On an event page, click Get Your Photos next to the photographer covering your race. You will be taken to the official photographer’s gallery to search by bib number, buy, and download high-resolution marathon photos directly.',
+                                            },
+                                        },
+                                        {
+                                            '@type': 'Question',
+                                            name: 'Which races does MarathonHub cover in Malaysia?',
+                                            acceptedAnswer: {
+                                                '@type': 'Answer',
+                                                text: 'MarathonHub covers official marathon, half marathon, fun run, trail run, and cycling events across Malaysia — including Kuala Lumpur, Putrajaya, Penang, Kedah, Johor, Sabah, and Sarawak.',
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        }),
+                    }}
+                />
+            </section>
 
             {/* CTA Section */}
             <section className="relative py-24 px-8 rounded-[3rem] border border-white/5 bg-ohmai-charcoal-light overflow-hidden">

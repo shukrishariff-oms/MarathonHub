@@ -161,7 +161,7 @@ export default function EventList() {
                     <input
                         type="text"
                         className="w-full pl-12 pr-4 py-3 bg-ohmai-charcoal-light border border-white/5 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none font-medium placeholder:text-slate-500 text-white"
-                        placeholder="Search by event name, location..."
+                        placeholder="Search event name, bib number or race photos"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
