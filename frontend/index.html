@@ -12,6 +12,9 @@
   <!-- Google Search Console verification -->
   <meta name="google-site-verification" content="wmMsJ1suvubxtCMxWQHcUH_6TsmURnSRZffEwlyE_vY" />
 
+  <!-- Canonical URL — homepage. Event/photographer pages override server-side. -->
+  <link rel="canonical" href="https://marathonhub.ohmaishoot.com/" />
+
   <!-- Primary Meta Tags -->
   <title>Official Marathon &amp; Running Event Photos Malaysia | MarathonHub</title>
   <meta name="title" content="Official Marathon &amp; Running Event Photos Malaysia | MarathonHub" />
@@ -36,6 +39,41 @@
   <meta property="twitter:description"
     content="Search and download official marathon, fun run, cycling, and running event photos across Malaysia. Free face-search, 40+ official race photographers." />
   <meta property="twitter:image" content="https://marathonhub.ohmaishoot.com/og-image.jpg" />
+
+  <!-- JSON-LD: Organization + WebSite/SearchAction.
+       Inline so non-JS crawlers (Googlebot fallback, AI bots) see it on first paint. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://marathonhub.ohmaishoot.com/#organization",
+        "name": "MarathonHub",
+        "alternateName": "MarathonHub by OhMaiShoot",
+        "url": "https://marathonhub.ohmaishoot.com/",
+        "logo": "https://marathonhub.ohmaishoot.com/ohmaishoot-logo.png",
+        "description": "Official directory of marathon, running, and cycling event photography in Malaysia. Operated by OhMaiShoot.",
+        "areaServed": { "@type": "Country", "name": "Malaysia" },
+        "sameAs": ["https://ohmaishoot.com/"],
+        "parentOrganization": { "@type": "Organization", "name": "OhMaiShoot" }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://marathonhub.ohmaishoot.com/#website",
+        "url": "https://marathonhub.ohmaishoot.com/",
+        "name": "MarathonHub",
+        "publisher": { "@id": "https://marathonhub.ohmaishoot.com/#organization" },
+        "inLanguage": ["en-MY", "ms-MY"],
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://marathonhub.ohmaishoot.com/events?search={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
