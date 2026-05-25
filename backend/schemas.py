@@ -167,6 +167,7 @@ class EventUpdate(EventBase):
 
 class Event(EventBase):
     id: int
+    slug: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     assignments: List[Assignment] = [] # This might need a simpler schema to avoid recursion if we nest deeply
@@ -180,6 +181,7 @@ class Event(EventBase):
         data = {
             'id': obj.id,
             'name': obj.name,
+            'slug': getattr(obj, 'slug', None),
             'date': obj.date,
             'location': obj.location,
             'organizer': obj.organizer,
@@ -235,6 +237,7 @@ class EventPublic(Event):
         data = {
             'id': obj.id,
             'name': obj.name,
+            'slug': getattr(obj, 'slug', None),
             'date': obj.date,
             'location': obj.location,
             'organizer': obj.organizer,

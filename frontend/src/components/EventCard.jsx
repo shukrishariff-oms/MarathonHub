@@ -14,7 +14,7 @@ export default function EventCard({ event }) {
             transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             className="h-full"
         >
-            <Link to={`/events/${event.id}`} className="block h-full">
+            <Link to={`/events/${event.slug || event.id}`} className="block h-full">
                 <div className="glass-card relative h-full flex flex-col group p-1 overflow-hidden border border-white/5 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300">
                     {/* Subtle glow on hover */}
                     <div className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-primary/0 via-primary/5 to-accent/10" />

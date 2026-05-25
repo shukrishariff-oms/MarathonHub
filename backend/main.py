@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas, crud, auth, database
@@ -133,6 +133,67 @@ def check_and_migrate_db():
                     "ON page_views (entity_type, entity_id)"
                 ))
                 conn.commit()
+
+            # Events.slug — SEO-friendly URL slugs.
+            # Backfilled lazily below from name+year so old numeric URLs keep
+            # working (we 301-redirect /events/<id> -> /events/<slug>).
+            event_cols = [c['name'] for c in inspector.get_columns("events")]
+            if "slug" not in event_cols:
+                print("Migrating database: Adding slug column to events...")
+                conn.execute(text("ALTER TABLE events ADD COLUMN slug VARCHAR"))
+                conn.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_events_slug ON events (slug)"
+                ))
+                conn.commit()
+
+            # Backfill any events still missing a slug (idempotent — only
+            # touches NULL rows). Safe to call on every boot; the WHERE
+            # filter makes it a no-op once everything is populated.
+            try:
+                missing = conn.execute(text(
+                    "SELECT id, name, date FROM events WHERE slug IS NULL OR slug = ''"
+                )).fetchall()
+                if missing:
+                    import re
+                    print(f"Backfilling slug for {len(missing)} event(s)...")
+                    used = {r[0] for r in conn.execute(text(
+                        "SELECT slug FROM events WHERE slug IS NOT NULL AND slug != ''"
+                    )).fetchall()}
+
+                    def _slugify_local(name, year):
+                        base = (name or "event").lower()
+                        base = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+                        base = base[:60].strip("-") or "event"
+                        if year:
+                            base = f"{base}-{year}"
+                        return base
+
+                    for row in missing:
+                        eid, ename, edate = row[0], row[1], row[2]
+                        year = None
+                        try:
+                            if edate:
+                                # SQLite returns ISO8601 string for DateTime
+                                year_str = str(edate)[:4]
+                                if year_str.isdigit():
+                                    year = year_str
+                        except Exception:
+                            pass
+                        candidate = _slugify_local(ename, year)
+                        slug = candidate
+                        n = 2
+                        while slug in used:
+                            slug = f"{candidate}-{n}"
+                            n += 1
+                        used.add(slug)
+                        conn.execute(
+                            text("UPDATE events SET slug = :s WHERE id = :i"),
+                            {"s": slug, "i": eid},
+                        )
+                    conn.commit()
+                    print("Slug backfill complete.")
+            except Exception as e:
+                print(f"Slug backfill skipped: {e}")
                     
     except Exception as e:
         print(f"Migration check failed: {e}")
@@ -424,6 +485,15 @@ def read_events(
 @app.get("/api/events/{event_id}", response_model=schemas.EventPublic) # utilizing EventPublic to include assignments
 def read_event(event_id: int, db: Session = Depends(get_db)):
     db_event = crud.get_event(db, event_id=event_id)
+    if db_event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return db_event
+
+
+@app.get("/api/events/by-slug/{slug}", response_model=schemas.EventPublic)
+def read_event_by_slug(slug: str, db: Session = Depends(get_db)):
+    """Public lookup by SEO slug (used by the SPA on /events/<slug>)."""
+    db_event = crud.get_event_by_slug(db, slug=slug)
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     return db_event
@@ -1390,7 +1460,7 @@ def _build_event_meta(event):
     desc_bits.append("Race photos, marathon photographer Malaysia. MarathonHub.")
     description = " ".join(desc_bits)
 
-    url = f"{SITE_URL}/events/{event.id}"
+    url = f"{SITE_URL}/events/{event.slug}" if getattr(event, "slug", None) else f"{SITE_URL}/events/{event.id}"
     image = f"{SITE_URL}/api/og/event/{event.id}.png"
 
     # JSON-LD: SportsEvent + BreadcrumbList for richer SERP
@@ -1500,7 +1570,10 @@ def sitemap_xml(db: Session = Depends(get_db)):
                 if getattr(e, "updated_at", None):
                     lastmod_dt = e.updated_at
                     lastmod = f"<lastmod>{lastmod_dt.strftime('%Y-%m-%d')}</lastmod>" if hasattr(lastmod_dt, "strftime") else ""
-                urls.append(f"  <url><loc>{SITE_URL}/events/{e.id}</loc>{lastmod}<changefreq>weekly</changefreq><priority>0.8</priority></url>")
+                # Prefer slug URL when available — it's the canonical SEO form.
+                slug = getattr(e, "slug", None)
+                event_path = f"/events/{slug}" if slug else f"/events/{e.id}"
+                urls.append(f"  <url><loc>{SITE_URL}{event_path}</loc>{lastmod}<changefreq>weekly</changefreq><priority>0.8</priority></url>")
             except Exception:
                 continue
     except Exception:
@@ -1979,10 +2052,19 @@ async def serve_frontend(full_path: str, db: Session = Depends(get_db)):
     try:
         meta = None
         if full_path.startswith("events/"):
+            # Accept either /events/<numeric-id> (legacy) or /events/<slug>.
+            # If a numeric id is given AND a slug exists, 301 to the slug
+            # form so all canonical traffic lands on the keyword URL.
             try:
-                event_id = int(full_path.split("/")[1])
-                event = crud.get_event(db, event_id=event_id)
+                key = full_path.split("/")[1]
+                if not key:
+                    raise ValueError("empty key")
+                event = crud.get_event_by_id_or_slug(db, key)
                 if event:
+                    if key.isdigit() and getattr(event, "slug", None):
+                        return RedirectResponse(
+                            url=f"/events/{event.slug}", status_code=301
+                        )
                     meta = _build_event_meta(event)
             except (ValueError, IndexError):
                 pass

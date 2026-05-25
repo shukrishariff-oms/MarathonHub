@@ -151,7 +151,7 @@ export default function EventCarousel({ events = [] }) {
                             {/* CTA Button */}
                             <div className="pt-4">
                                 <a
-                                    href={`/events/${currentEvent.id}`}
+                                    href={`/events/${currentEvent.slug || currentEvent.id}`}
                                     className="inline-block bg-primary text-ohmai-charcoal font-black text-base md:text-lg px-6 md:px-8 py-3 md:py-4 rounded-full shadow-lg shadow-primary/25 hover:bg-white hover:scale-105 transition-all duration-300"
                                 >
                                     Explore Gallery

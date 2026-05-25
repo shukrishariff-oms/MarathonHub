@@ -7,7 +7,9 @@ import { safeParse } from '../utils/safeJson';
 import FaceSearchPanel from '../components/FaceSearchPanel';
 
 export default function EventDetail() {
-    const { id } = useParams();
+    const { slug } = useParams();
+    // `slug` is the URL key — could be a numeric id (legacy) or an SEO slug.
+    const id = slug;
     const [event, setEvent] = useState(null);
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -101,12 +103,30 @@ export default function EventDetail() {
     };
 
     useEffect(() => {
-        api.get(`/events/${id}`)
-            .then(res => {
-                setEvent(res.data);
-                if (res.data.assignments) {
+        // Try numeric id first, fall back to slug lookup. This way the same
+        // route handler works for /events/12 (legacy) and /events/kedah-marathon-2026.
+        const isNumeric = /^\d+$/.test(String(id));
+        const tryFetch = async () => {
+            try {
+                if (isNumeric) {
+                    const res = await api.get(`/events/${id}`);
+                    return res.data;
+                }
+                const res = await api.get(`/events/by-slug/${id}`);
+                return res.data;
+            } catch (err) {
+                if (!isNumeric) throw err;
+                // numeric primary failed — try slug as last resort
+                const res = await api.get(`/events/by-slug/${id}`);
+                return res.data;
+            }
+        };
+        tryFetch()
+            .then(data => {
+                setEvent(data);
+                if (data.assignments) {
                     // Sort assignments: Pinned first
-                    const sortedAssignments = res.data.assignments.sort((a, b) => {
+                    const sortedAssignments = data.assignments.sort((a, b) => {
                         if (a.is_pinned === b.is_pinned) return 0;
                         return a.is_pinned ? -1 : 1;
                     });
@@ -195,7 +215,7 @@ export default function EventDetail() {
                                 Share Event:
                             </span>
                             <a
-                                href={`https://wa.me/?text=${encodeURIComponent(`Check out ${event.name} on ${formattedDate} at ${event.location}! https://marathonhub.ohmaishoot.com/events/${event.id}`)}`}
+                                href={`https://wa.me/?text=${encodeURIComponent(`Check out ${event.name} on ${formattedDate} at ${event.location}! https://marathonhub.ohmaishoot.com/events/${event.slug || event.id}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-4 py-2 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/20 transition-all font-bold text-xs flex items-center gap-2"
@@ -203,7 +223,7 @@ export default function EventDetail() {
                                 WhatsApp
                             </a>
                             <a
-                                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.id}`)}`}
+                                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.slug || event.id}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-4 py-2 rounded-xl bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] hover:bg-[#1877F2]/20 transition-all font-bold text-xs"
@@ -211,7 +231,7 @@ export default function EventDetail() {
                                 Facebook
                             </a>
                             <a
-                                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.id}`)}&text=${encodeURIComponent(`${event.name} - ${formattedDate}`)}`}
+                                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`https://marathonhub.ohmaishoot.com/events/${event.slug || event.id}`)}&text=${encodeURIComponent(`${event.name} - ${formattedDate}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-4 py-2 rounded-xl bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-[#1DA1F2] hover:bg-[#1DA1F2]/20 transition-all font-bold text-xs"

@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 import models, schemas
 import json
+import re
 
 # Admin
 def get_admin_by_username(db: Session, username: str):
@@ -17,6 +19,52 @@ def create_admin(db: Session, admin: schemas.AdminLogin):
 
 # Events
 from datetime import datetime
+
+
+def _slugify(text: str) -> str:
+    """Lowercase, alnum + dash, max 60 chars."""
+    if not text:
+        return "event"
+    base = text.lower()
+    base = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+    base = base[:60].strip("-")
+    return base or "event"
+
+
+def _slug_for_event(name: str, date: datetime) -> str:
+    """Build slug base = slugified name + year (e.g. 'kedah-marathon-2026')."""
+    base = _slugify(name)
+    year = ""
+    try:
+        if date and hasattr(date, "year"):
+            year = str(date.year)
+        elif date:
+            ystr = str(date)[:4]
+            if ystr.isdigit():
+                year = ystr
+    except Exception:
+        pass
+    return f"{base}-{year}" if year else base
+
+
+def generate_unique_slug(db: Session, name: str, date: datetime, exclude_id: int = None) -> str:
+    """Generate a unique slug for an event. Appends -2, -3, ... on collision.
+
+    exclude_id lets the same event re-use its current slug during update
+    without tripping the uniqueness check.
+    """
+    candidate = _slug_for_event(name, date)
+    slug = candidate
+    n = 2
+    while True:
+        q = db.query(models.Event).filter(models.Event.slug == slug)
+        if exclude_id is not None:
+            q = q.filter(models.Event.id != exclude_id)
+        if q.first() is None:
+            return slug
+        slug = f"{candidate}-{n}"
+        n += 1
+
 
 # Events
 def update_event_statuses(db: Session):
@@ -65,8 +113,36 @@ def get_events(db: Session, skip: int = 0, limit: int = 100, status: str = None,
 def get_event(db: Session, event_id: int):
     return db.query(models.Event).filter(models.Event.id == event_id).first()
 
+
+def get_event_by_slug(db: Session, slug: str):
+    """Look up an event by its SEO slug."""
+    if not slug:
+        return None
+    return db.query(models.Event).filter(models.Event.slug == slug).first()
+
+
+def get_event_by_id_or_slug(db: Session, key: str):
+    """Resolve either a numeric id or a slug to an event row.
+
+    Used by the public detail endpoint so the frontend can keep working
+    with old numeric URLs while we migrate links to slug-form.
+    """
+    if not key:
+        return None
+    s = str(key)
+    if s.isdigit():
+        ev = db.query(models.Event).filter(models.Event.id == int(s)).first()
+        if ev:
+            return ev
+    return db.query(models.Event).filter(models.Event.slug == s).first()
+
+
 def create_event(db: Session, event: schemas.EventCreate):
-    db_event = models.Event(**event.model_dump())
+    data = event.model_dump()
+    db_event = models.Event(**data)
+    # Generate a unique slug from name + year before commit so the row
+    # can be linked to immediately after creation.
+    db_event.slug = generate_unique_slug(db, db_event.name, db_event.date)
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
@@ -75,8 +151,21 @@ def create_event(db: Session, event: schemas.EventCreate):
 def update_event(db: Session, event_id: int, event: schemas.EventUpdate):
     db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if db_event:
+        old_name = db_event.name
+        old_date = db_event.date
         for key, value in event.model_dump().items():
             setattr(db_event, key, value)
+        # If name or year changed, regenerate slug. Don't touch slug if
+        # the source fields are stable — preserves existing inbound links.
+        try:
+            new_year = db_event.date.year if db_event.date else None
+            old_year = old_date.year if old_date else None
+        except Exception:
+            new_year = old_year = None
+        if (db_event.name != old_name) or (new_year != old_year) or not db_event.slug:
+            db_event.slug = generate_unique_slug(
+                db, db_event.name, db_event.date, exclude_id=db_event.id
+            )
         db.commit()
         db.refresh(db_event)
     return db_event
