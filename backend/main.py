@@ -197,10 +197,12 @@ def check_and_migrate_db():
             except Exception as e:
                 print(f"Slug backfill skipped: {e}")
 
-            # One-time cleanup: re-slug events with duplicated-year slugs
-            # (e.g. "twincity-marathon-2026-2026" -> "twincity-marathon-2026").
-            # Idempotent — only matches the duplicate pattern. Safe to leave
-            # in for future boots; no-op once cleaned up.
+            # One-time cleanup: re-slug events with redundant trailing year
+            # (e.g. "twincity-marathon-2026-2026" -> "twincity-marathon-2026",
+            #  "score-marathon-2026-by-aia-vitality-2026" ->
+            #  "score-marathon-2026-by-aia-vitality").
+            # Idempotent — only matches the redundant-year pattern. Safe to
+            # leave in for future boots; no-op once cleaned up.
             try:
                 rows = conn.execute(text(
                     "SELECT id, name, date, slug FROM events "
@@ -220,13 +222,21 @@ def check_and_migrate_db():
                         pass
                     if not year_str:
                         continue
-                    dup_tail = f"-{year_str}-{year_str}"
-                    if not current_slug.endswith(dup_tail):
+                    parts = current_slug.split("-")
+                    # Trailing segment must be the event year, AND that same
+                    # year must already appear elsewhere in the slug (either
+                    # in the original name like "...-marathon-2026-..." or as
+                    # a duplicated tail like "...-2026-2026").
+                    if parts[-1] != year_str:
                         continue
-                    canonical = current_slug[:-(len(year_str) + 1)]
+                    earlier = parts[:-1]
+                    if year_str not in earlier:
+                        continue
+                    canonical = "-".join(earlier).strip("-")
                     if not canonical or canonical == current_slug:
                         continue
                     if canonical in taken and canonical != current_slug:
+                        # Collision with a different event — leave as-is.
                         continue
                     conn.execute(
                         text("UPDATE events SET slug = :s WHERE id = :i"),
@@ -237,7 +247,7 @@ def check_and_migrate_db():
                     rewrites += 1
                 if rewrites:
                     conn.commit()
-                    print(f"Slug dedup: rewrote {rewrites} duplicate-year slug(s).")
+                    print(f"Slug dedup: rewrote {rewrites} redundant-year slug(s).")
             except Exception as e:
                 print(f"Slug dedup skipped: {e}")
     except Exception as e:
@@ -2151,18 +2161,21 @@ async def serve_frontend(full_path: str, db: Session = Depends(get_db)):
                         )
                     meta = _build_event_meta(event)
                 else:
-                    # Backward-compat: handle old "-YYYY-YYYY" slugs that
-                    # were de-duplicated. Strip the duplicated year tail and
-                    # try once more; if the canonical slug exists, 301 there.
-                    import re as _re
-                    m = _re.match(r"^(.*?-(\d{4}))-\2$", key)
-                    if m:
-                        canonical_key = m.group(1)
-                        canonical = crud.get_event_by_slug(db, canonical_key)
-                        if canonical:
-                            return RedirectResponse(
-                                url=f"/events/{canonical_key}", status_code=301
-                            )
+                    # Backward-compat: handle legacy slugs with a redundant
+                    # trailing -YYYY where the year already appears earlier
+                    # (e.g. "...-marathon-2026-2026" or
+                    #       "score-marathon-2026-by-aia-vitality-2026").
+                    parts = key.split("-") if key else []
+                    if len(parts) >= 3 and parts[-1].isdigit() and len(parts[-1]) == 4:
+                        if parts[-1] in parts[:-1]:
+                            canonical_key = "-".join(parts[:-1]).strip("-")
+                            if canonical_key:
+                                canonical = crud.get_event_by_slug(db, canonical_key)
+                                if canonical:
+                                    return RedirectResponse(
+                                        url=f"/events/{canonical_key}",
+                                        status_code=301,
+                                    )
             except (ValueError, IndexError):
                 pass
         elif full_path.startswith("photographers/"):
