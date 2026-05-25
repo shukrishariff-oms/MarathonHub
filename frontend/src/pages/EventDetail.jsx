@@ -14,6 +14,7 @@ export default function EventDetail() {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [related, setRelated] = useState([]);
     const [copyState, setCopyState] = useState('idle'); // idle | copying | done
 
     const handleCopyShare = async () => {
@@ -133,6 +134,12 @@ export default function EventDetail() {
                     setAssignments(sortedAssignments);
                 }
                 setLoading(false);
+                // Fire-and-forget: load related events for SEO internal links.
+                if (data?.id) {
+                    api.get(`/events/${data.id}/related`)
+                        .then(r => setRelated(r.data?.items || []))
+                        .catch(() => setRelated([]));
+                }
             })
             .catch(err => {
                 console.error(err);
@@ -466,6 +473,57 @@ export default function EventDetail() {
                     )}
                 </div>
             </section>
+
+            {/* SEO: Related events — internal linking for crawlers + AI search.
+                Renders only after fetch resolves; safe if empty. */}
+            {related.length > 0 && (
+                <section
+                    aria-labelledby="related-heading"
+                    className="space-y-6"
+                >
+                    <div className="flex items-end justify-between gap-4">
+                        <h2 id="related-heading" className="text-2xl md:text-3xl font-display font-black text-white tracking-tighter uppercase italic">
+                            Related Marathon &amp; Running Events {event?.location ? `in ${event.location}` : 'in Malaysia'}
+                        </h2>
+                        <Link
+                            to="/events"
+                            className="text-primary font-bold text-sm hover:underline shrink-0"
+                            aria-label="Browse all running and marathon events on MarathonHub"
+                        >
+                            All events &rarr;
+                        </Link>
+                    </div>
+
+                    <ul className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {related.slice(0, 6).map(r => (
+                            <li key={r.id} className="rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-colors overflow-hidden">
+                                <Link
+                                    to={`/events/${r.slug || r.id}`}
+                                    className="block h-full"
+                                    aria-label={`${r.name} — official race photos`}
+                                >
+                                    {r.cover_image_url && (
+                                        <img
+                                            src={r.cover_image_url}
+                                            alt={`${r.name} race photos${r.location ? ' — ' + r.location : ''}`}
+                                            loading="lazy"
+                                            decoding="async"
+                                            className="w-full h-28 md:h-32 object-cover opacity-60 hover:opacity-90 transition-opacity"
+                                        />
+                                    )}
+                                    <div className="p-3 space-y-1">
+                                        <p className="text-white font-bold text-sm line-clamp-2">{r.name}</p>
+                                        <p className="text-slate-400 text-xs font-medium">
+                                            {r.location || 'Malaysia'}
+                                            {r.date ? ` · ${new Date(r.date).getFullYear()}` : ''}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
         </div>
     );
 }

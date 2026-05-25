@@ -543,6 +543,45 @@ def read_event_by_slug(slug: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Event not found")
     return db_event
 
+
+@app.get("/api/events/{event_id}/related")
+def read_related_events(event_id: int, limit: int = 6, db: Session = Depends(get_db)):
+    """Lightweight related events feed for SEO internal linking.
+
+    Strategy: same location first, then nearest-by-date neighbours, excluding
+    the current event. Returns a slim payload (id/slug/name/date/location/cover)
+    to keep the SPA payload tiny.
+    """
+    current = crud.get_event(db, event_id=event_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    q = db.query(models.Event).filter(models.Event.id != event_id)
+    same_loc = []
+    if getattr(current, "location", None):
+        same_loc = q.filter(models.Event.location == current.location).order_by(
+            models.Event.date.desc()
+        ).limit(limit).all()
+    needed = max(0, limit - len(same_loc))
+    fillers = []
+    if needed:
+        seen = {e.id for e in same_loc}
+        fillers = [
+            e for e in q.order_by(models.Event.date.desc()).limit(limit + len(seen)).all()
+            if e.id not in seen
+        ][:needed]
+    out = []
+    for e in same_loc + fillers:
+        out.append({
+            "id": e.id,
+            "slug": getattr(e, "slug", None),
+            "name": e.name,
+            "date": e.date.isoformat() if getattr(e, "date", None) else None,
+            "location": getattr(e, "location", None),
+            "cover_image_url": getattr(e, "cover_image_url", None),
+            "logo_url": getattr(e, "logo_url", None),
+        })
+    return {"items": out}
+
 @app.get("/api/photographers", response_model=List[schemas.Photographer])
 def read_photographers(skip: int = 0, limit: int = 100, search: Optional[str] = None, include_hidden: bool = False, db: Session = Depends(get_db)):
     return crud.get_photographers(db, skip=skip, limit=limit, search=search, include_hidden=include_hidden)
