@@ -2111,6 +2111,19 @@ async def serve_frontend(full_path: str, db: Session = Depends(get_db)):
                             url=f"/events/{event.slug}", status_code=301
                         )
                     meta = _build_event_meta(event)
+                else:
+                    # Backward-compat: handle old "-YYYY-YYYY" slugs that
+                    # were de-duplicated. Strip the duplicated year tail and
+                    # try once more; if the canonical slug exists, 301 there.
+                    import re as _re
+                    m = _re.match(r"^(.*?-(\d{4}))-\2$", key)
+                    if m:
+                        canonical_key = m.group(1)
+                        canonical = crud.get_event_by_slug(db, canonical_key)
+                        if canonical:
+                            return RedirectResponse(
+                                url=f"/events/{canonical_key}", status_code=301
+                            )
             except (ValueError, IndexError):
                 pass
         elif full_path.startswith("photographers/"):
