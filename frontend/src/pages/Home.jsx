@@ -94,6 +94,45 @@ export default function Home() {
 
     return (
         <div className="space-y-24 pb-20">
+            {/* SEO Hero — primary semantic H1 for search engines + AI search.
+                Sentiasa render (above carousel/standard hero) supaya crawlers
+                jumpa H1 + keywords on every page load. Decorative hero below
+                guna div aria-hidden untuk elak double-H1. */}
+            <section
+                aria-labelledby="seo-hero-h1"
+                className="relative pt-2 md:pt-6 pb-2"
+            >
+                <div className="max-w-4xl mx-auto text-center space-y-6 px-2">
+                    <h1
+                        id="seo-hero-h1"
+                        className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-display font-black text-white tracking-tighter leading-[1.05] uppercase italic"
+                    >
+                        Official <span className="text-gradient">Marathon</span> &amp; Running Event Photos <span className="text-gradient">Malaysia</span>
+                    </h1>
+                    <p className="text-base md:text-lg text-slate-300 font-medium max-w-3xl mx-auto leading-relaxed">
+                        Search and download official marathon, fun run, cycling, and running event photos across Malaysia.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-3 pt-2">
+                        <Link
+                            to="/events"
+                            aria-label="Search marathon and running event photos across Malaysia"
+                            className="premium-btn-primary inline-flex items-center gap-2"
+                        >
+                            <Search className="w-4 h-4" aria-hidden="true" />
+                            Search Event Photos
+                        </Link>
+                        <Link
+                            to="/events"
+                            aria-label="Browse latest marathon and running events in Malaysia"
+                            className="premium-btn-outline inline-flex items-center gap-2"
+                        >
+                            Browse Latest Events
+                            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
             {/* Event Carousel for Highlighted Events */}
             {highlightedEvents.length > 0 ? (
                 <div className="mb-24">
