@@ -423,7 +423,8 @@ async def upload_image(
     current_user: models.Admin = Depends(auth.get_current_user),
 ):
     """Authenticated image upload. Validates MIME, caps size, derives the
-    extension from the validated MIME type (never trusts the client filename).
+    extension from the validated MIME type (never trusts the client filename),
+    then re-encodes to WebP with EXIF stripped for SEO + privacy + payload.
     """
     # 1. MIME allowlist — reject anything that isn't an image we want to serve.
     content_type = (file.content_type or "").lower()
@@ -434,15 +435,16 @@ async def upload_image(
         )
     safe_extension = ALLOWED_UPLOAD_MIME[content_type]
 
-    # 2. Stream to disk with a hard size cap. Avoid loading the whole file
-    #    into memory and avoid trusting Content-Length headers.
-    unique_filename = f"{uuid.uuid4().hex}{safe_extension}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    # 2. Stream to a temp path with a hard size cap. Avoid loading the whole
+    #    file into memory and avoid trusting Content-Length headers.
+    upload_id = uuid.uuid4().hex
+    tmp_filename = f"{upload_id}{safe_extension}"
+    tmp_path = os.path.join(UPLOAD_DIR, tmp_filename)
 
     bytes_written = 0
     chunk_size = 64 * 1024
     try:
-        with open(file_path, "wb") as buffer:
+        with open(tmp_path, "wb") as buffer:
             while True:
                 chunk = await file.read(chunk_size)
                 if not chunk:
@@ -455,20 +457,64 @@ async def upload_image(
                     )
                 buffer.write(chunk)
     except HTTPException:
-        # Clean up partial file before re-raising
         try:
-            os.remove(file_path)
+            os.remove(tmp_path)
         except OSError:
             pass
         raise
     except Exception:
         try:
-            os.remove(file_path)
+            os.remove(tmp_path)
         except OSError:
             pass
         raise
 
-    return {"url": f"/api/uploads/{unique_filename}"}
+    # 3. Re-encode to WebP, strip EXIF, cap longest side at 2400px so we don't
+    #    serve 8000px race photos as the cover image. Quality 85 is the sweet
+    #    spot for race photography (visually lossless, ~30-50% smaller than JPEG).
+    final_filename = f"{upload_id}.webp"
+    final_path = os.path.join(UPLOAD_DIR, final_filename)
+    try:
+        from PIL import Image, ImageOps
+        with Image.open(tmp_path) as im:
+            # ImageOps.exif_transpose applies EXIF orientation to pixels then
+            # drops the EXIF tag — so the image still looks correct upright
+            # without leaking camera metadata to the public.
+            im = ImageOps.exif_transpose(im)
+            # Convert palette / RGBA to a clean RGB / RGBA frame WebP can encode.
+            if im.mode not in ("RGB", "RGBA"):
+                im = im.convert("RGBA" if "A" in im.getbands() else "RGB")
+            # Cap longest edge for cover/logo use cases. Race photos are not
+            # served through this endpoint so 2400px is plenty.
+            max_side = 2400
+            w, h = im.size
+            if max(w, h) > max_side:
+                ratio = max_side / float(max(w, h))
+                im = im.resize(
+                    (max(1, int(w * ratio)), max(1, int(h * ratio))),
+                    Image.LANCZOS,
+                )
+            # method=6 = best compression at the cost of CPU; still <1s for 2400px.
+            # exif="" + omitting metadata kwargs guarantees no EXIF/GPS leakage.
+            im.save(final_path, "WEBP", quality=85, method=6)
+        # Drop the original — only the WebP is served publicly.
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+    except Exception as e:
+        # If WebP conversion fails (corrupt image, exotic format), fall back
+        # to the validated original so admins aren't blocked. Keep the raw
+        # extension — never serve unverified bytes as something else.
+        print(f"WebP conversion failed for {tmp_filename}: {e}")
+        try:
+            if os.path.exists(final_path):
+                os.remove(final_path)
+        except OSError:
+            pass
+        return {"url": f"/api/uploads/{tmp_filename}"}
+
+    return {"url": f"/api/uploads/{final_filename}"}
 
 @app.get("/api/events", response_model=List[schemas.Event])
 def read_events(
