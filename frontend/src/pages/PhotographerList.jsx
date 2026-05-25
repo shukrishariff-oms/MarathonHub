@@ -140,7 +140,13 @@ export default function PhotographerList() {
                                                 {p.logo_url ? (
                                                     <div className="relative shrink-0">
                                                         <div className="absolute inset-0 bg-gradient-to-tr from-primary to-accent rounded-[1.5rem] blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500" />
-                                                        <img src={p.logo_url} alt={p.name} className="relative h-24 w-24 rounded-[1.5rem] object-cover border-2 border-white/10 shadow-xl group-hover:scale-105 transition-transform duration-500" />
+                                                        <img
+                                                            src={p.logo_url}
+                                                            alt={`${p.name} — marathon photographer Malaysia`}
+                                                            loading="lazy"
+                                                            decoding="async"
+                                                            className="relative h-24 w-24 rounded-[1.5rem] object-cover border-2 border-white/10 shadow-xl group-hover:scale-105 transition-transform duration-500"
+                                                        />
                                                     </div>
                                                 ) : (
                                                     <div className="relative shrink-0 h-24 w-24 rounded-[1.5rem] bg-white/5 flex items-center justify-center text-primary border-2 border-white/5 group-hover:border-primary/30 transition-colors shadow-inner">

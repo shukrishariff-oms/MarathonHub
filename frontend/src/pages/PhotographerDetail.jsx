@@ -60,7 +60,14 @@ export default function PhotographerDetail() {
                     <div className="absolute inset-0 bg-ohmai-charcoal" />
                     {photographer.logo_url && (
                         <>
-                            <img src={photographer.logo_url} alt="Bg" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-screen blur-sm" />
+                            <img
+                                src={photographer.logo_url}
+                                alt={`${photographer.name} — race photographer brand background`}
+                                loading="lazy"
+                                decoding="async"
+                                aria-hidden="true"
+                                className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-screen blur-sm"
+                            />
                         </>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-[#0B0F1A]/80 to-transparent" />
@@ -84,7 +91,13 @@ export default function PhotographerDetail() {
                     >
                         <div className="absolute -inset-2 bg-gradient-to-tr from-primary to-accent rounded-[2.5rem] blur-xl opacity-30 group-hover:opacity-60 transition-opacity duration-700 animate-pulse" />
                         {photographer.logo_url ? (
-                            <img src={photographer.logo_url} alt={photographer.name} className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] object-cover border-4 border-white/5 shadow-2xl group-hover:scale-[1.02] transition-transform duration-500" />
+                            <img
+                                src={photographer.logo_url}
+                                alt={`${photographer.name} — official Malaysia race photographer`}
+                                loading="eager"
+                                decoding="async"
+                                className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] object-cover border-4 border-white/5 shadow-2xl group-hover:scale-[1.02] transition-transform duration-500"
+                            />
                         ) : (
                             <div className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] bg-white/5 flex items-center justify-center border-4 border-white/5 shadow-2xl backdrop-blur-md">
                                 <Camera className="w-24 h-24 text-slate-500" />
@@ -211,7 +224,13 @@ export default function PhotographerDetail() {
                                             </div>
                                             <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent/20 mix-blend-overlay group-hover:scale-110 transition-transform duration-700" />
                                             {event.logo_url ? (
-                                                <img src={event.logo_url} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500" alt="Event" />
+                                                <img
+                                                    src={event.logo_url}
+                                                    alt={`${event.name} — race event covered by ${photographer.name}`}
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500"
+                                                />
                                             ) : (
                                                 <Camera className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 text-white/10 group-hover:text-primary/20 transition-colors duration-500" />
                                             )}

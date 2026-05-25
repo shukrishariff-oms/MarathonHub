@@ -398,7 +398,13 @@ export default function EventDetail() {
                                 <div className="p-6 flex-grow">
                                     <div className="flex items-start gap-4 mb-6">
                                         {photographer.logo_url ? (
-                                            <img src={photographer.logo_url} alt={photographer.name} className="h-14 w-14 rounded-xl object-cover border-2 border-white shadow-md" />
+                                            <img
+                                                src={photographer.logo_url}
+                                                alt={`${photographer.name} — official race photographer for ${event.name}`}
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="h-14 w-14 rounded-xl object-cover border-2 border-white shadow-md"
+                                            />
                                         ) : (
                                             <div className="h-14 w-14 rounded-xl bg-primary/5 flex items-center justify-center border-2 border-primary/10">
                                                 <Camera className="w-7 h-7 text-primary/30" />

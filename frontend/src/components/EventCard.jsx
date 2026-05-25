@@ -35,7 +35,13 @@ export default function EventCard({ event }) {
 
                         {event.cover_image_url && (
                             <div className="absolute inset-0 z-0">
-                                <img src={event.cover_image_url} alt={event.name} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-300" />
+                                <img
+                                    src={event.cover_image_url}
+                                    alt={`${event.name} race photos${event.location ? ' — ' + event.location : ''}`}
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-300"
+                                />
                                 <div className="absolute inset-0 bg-gradient-to-t from-ohmai-charcoal via-ohmai-charcoal/80 to-transparent" />
                             </div>
                         )}
