@@ -24,16 +24,22 @@ export default function Home() {
             .catch(err => console.error(err))
             .finally(() => setLoadingUpcoming(false));
 
-        api.get('/events?status=Past&limit=12')
+        api.get('/events?status=Past&limit=20')
             .then(res => {
+                // Defensive: walaupun API filter status=Past, ada kes admin
+                // tersilap tag event masa depan sebagai Completed/Past.
+                // Filter date <= today supaya event akan datang TAK BOLEH
+                // bocor masuk Recent Galleries.
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                const past = (res.data || []).filter(e => {
+                    if (!e.date) return false;
+                    return new Date(e.date) <= today;
+                });
                 // Sort latest finish line first — photographer feedback:
                 // runners datang nak gambar terus, mahu yang baru habis di atas.
-                const sorted = (res.data || []).slice().sort((a, b) => {
-                    const da = a.date ? new Date(a.date).getTime() : 0;
-                    const db = b.date ? new Date(b.date).getTime() : 0;
-                    return db - da;
-                });
-                setRecentEvents(sorted.slice(0, 6));
+                past.sort((a, b) => new Date(b.date) - new Date(a.date));
+                setRecentEvents(past.slice(0, 6));
             })
             .catch(err => console.error(err))
             .finally(() => setLoadingRecent(false));
@@ -208,7 +214,6 @@ export default function Home() {
                         </motion.div>
                     </div>
                 </section>
-            )}
 
             {/* Recent Galleries — runners landing here mostly nak gambar
                 terus dari race yang baru habis. Letak paling atas (lepas
