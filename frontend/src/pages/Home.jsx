@@ -150,12 +150,15 @@ export default function Home() {
 
             {/* Recent Galleries — runners landing here mostly nak gambar
                 terus dari race yang baru habis. Letak paling atas (lepas
-                hero) supaya tak payah scroll. Sort latest→oldest. */}
+                hero) supaya tak payah scroll. Sort latest→oldest.
+                NOTE: guna animate (bukan whileInView) sebab section ni
+                sentiasa above-the-fold; whileInView IntersectionObserver
+                kadang-kadang tak fire untuk element yang dah visible
+                masa mount, jadi cards stuck kat opacity:0. */}
             <motion.section
                 variants={containerVariants}
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-100px" }}
+                animate="visible"
             >
                 <div className="flex items-end justify-between mb-10">
                     <div className="space-y-2">
