@@ -127,7 +127,7 @@ export default function Home() {
                     <p className="text-sm md:text-base text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
                         Search and browse marathon, fun run, cycling, and running event photos across Malaysia.
                     </p>
-                    <div className="flex flex-wrap justify-center gap-3 pt-2">
+                    <div className="flex justify-center pt-2">
                         <Link
                             to="/events"
                             aria-label="Search marathon and running event photos across Malaysia"
@@ -135,14 +135,6 @@ export default function Home() {
                         >
                             <Search className="w-4 h-4" aria-hidden="true" />
                             Search Event Photos
-                        </Link>
-                        <Link
-                            to="/events"
-                            aria-label="Browse latest marathon and running events in Malaysia"
-                            className="premium-btn-outline inline-flex items-center gap-2"
-                        >
-                            Browse Latest Events
-                            <ArrowRight className="w-4 h-4" aria-hidden="true" />
                         </Link>
                     </div>
                 </div>
