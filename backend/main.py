@@ -1678,6 +1678,17 @@ def _build_photographer_meta(photographer):
     return title, description, url, image, json_ld, body_extra
 
 
+@app.get("/BingSiteAuth.xml", include_in_schema=False)
+def bing_site_auth():
+    body = (
+        '<?xml version="1.0"?>\n'
+        '<users>\n'
+        '\t<user>F7521108A0F2956C5024BA4691D879C0</user>\n'
+        '</users>'
+    )
+    return Response(content=body, media_type="application/xml")
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     # Note: production traffic for marathonhub.ohmaishoot.com sits behind
