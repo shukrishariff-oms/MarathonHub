@@ -4,7 +4,8 @@ import { Calendar, MapPin, Flag, ExternalLink, Timer, Trophy, Info, Camera, User
 import { motion } from 'framer-motion';
 import api from '../api';
 import { safeParse } from '../utils/safeJson';
-import FaceSearchPanel from '../components/FaceSearchPanel';
+import FaceSearchPanel from '../components/FaceSearchPanel'; // eslint-disable-line no-unused-vars -- preserved for re-enable when Photohawk auth gate lifts
+import PhotographerDirectory from '../components/PhotographerDirectory';
 
 export default function EventDetail() {
     const { slug } = useParams();
@@ -327,7 +328,7 @@ export default function EventDetail() {
 
             {/* Face Search — appears right under hero, above description.
                 Component handles its own visibility (hides if no assignments). */}
-            <FaceSearchPanel event={event} assignments={assignments} />
+            <PhotographerDirectory event={event} assignments={assignments} />
 
             {/* Description */}
             <section className="grid md:grid-cols-3 gap-12 items-start">
