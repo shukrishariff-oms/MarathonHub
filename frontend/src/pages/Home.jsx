@@ -24,8 +24,17 @@ export default function Home() {
             .catch(err => console.error(err))
             .finally(() => setLoadingUpcoming(false));
 
-        api.get('/events?status=Past&limit=3')
-            .then(res => setRecentEvents(res.data))
+        api.get('/events?status=Past&limit=12')
+            .then(res => {
+                // Sort latest finish line first — photographer feedback:
+                // runners datang nak gambar terus, mahu yang baru habis di atas.
+                const sorted = (res.data || []).slice().sort((a, b) => {
+                    const da = a.date ? new Date(a.date).getTime() : 0;
+                    const db = b.date ? new Date(b.date).getTime() : 0;
+                    return db - da;
+                });
+                setRecentEvents(sorted.slice(0, 6));
+            })
             .catch(err => console.error(err))
             .finally(() => setLoadingRecent(false));
 
@@ -133,14 +142,10 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* Event Carousel for Highlighted Events */}
-            {highlightedEvents.length > 0 ? (
-                <div className="mb-24">
-                    <EventCarousel events={highlightedEvents} />
-                </div>
-            ) : (
-                /* Standard Hero only if no Highlighted Events */
-                <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden rounded-[3rem] bg-ohmai-charcoal text-white p-8 md:p-16">
+            {/* Standard Hero — always render (carousel moved to bottom per
+                photographer feedback: runners want recent galleries on top,
+                featured carousel as discovery at the end). */}
+            <section className="relative min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden rounded-[3rem] bg-ohmai-charcoal text-white p-8 md:p-16">
                     {/* Abstract Background Elements */}
                     <div className="absolute top-0 right-0 w-3/4 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
                     <div className="absolute -bottom-24 -left-24 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[120px] pointer-events-none" />
@@ -204,6 +209,46 @@ export default function Home() {
                     </div>
                 </section>
             )}
+
+            {/* Recent Galleries — runners landing here mostly nak gambar
+                terus dari race yang baru habis. Letak paling atas (lepas
+                hero) supaya tak payah scroll. Sort latest→oldest. */}
+            <motion.section
+                variants={containerVariants}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-100px" }}
+            >
+                <div className="flex items-end justify-between mb-10">
+                    <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                            <Camera className="w-3.5 h-3.5" />
+                            Baru Habis
+                        </div>
+                        <h2 className="text-3xl font-display font-black text-white tracking-tight italic uppercase">Recent Galleries</h2>
+                        <p className="text-slate-400 font-medium">Cari gambar race day kau di sini.</p>
+                    </div>
+                    <Link to="/events?status=Past" className="group flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all duration-300">
+                        View history <ArrowRight className="w-4 h-4" />
+                    </Link>
+                </div>
+
+                <div className="grid gap-8 md:grid-cols-3">
+                    {loadingRecent
+                        ? Array.from({ length: 6 }).map((_, i) => <EventCardSkeleton key={`sk-re-${i}`} />)
+                        : recentEvents.map(event => (
+                            <motion.div key={event.id} variants={itemVariants}>
+                                <EventCard event={event} />
+                            </motion.div>
+                        ))}
+                    {!loadingRecent && recentEvents.length === 0 && (
+                        <div className="col-span-full py-20 text-center glass-card border-dashed">
+                            <Camera className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <p className="text-slate-500 font-bold">Galleries will appear here after the races.</p>
+                        </div>
+                    )}
+                </div>
+            </motion.section>
 
             {/* This Week's Races — auto-curated, ≤7 days away */}
             {thisWeekEvents.length > 0 && (
@@ -276,39 +321,28 @@ export default function Home() {
                 </div>
             </motion.section>
 
-            {/* Recent Events & Photos */}
-            <motion.section
-                variants={containerVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-100px" }}
-            >
-                <div className="flex items-end justify-between mb-10">
-                    <div className="space-y-2">
-                        <h2 className="text-3xl font-display font-black text-white tracking-tight italic uppercase">Recent Galleries</h2>
-                        <p className="text-slate-400 font-medium">Find your race day photos here.</p>
-                    </div>
-                    <Link to="/events?status=Past" className="group flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all duration-300">
-                        View history <ArrowRight className="w-4 h-4" />
-                    </Link>
-                </div>
-
-                <div className="grid gap-8 md:grid-cols-3">
-                    {loadingRecent
-                        ? Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`sk-re-${i}`} />)
-                        : recentEvents.map(event => (
-                            <motion.div key={event.id} variants={itemVariants}>
-                                <EventCard event={event} />
-                            </motion.div>
-                        ))}
-                    {!loadingRecent && recentEvents.length === 0 && (
-                        <div className="col-span-full py-20 text-center glass-card border-dashed">
-                            <Camera className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                            <p className="text-slate-500 font-bold">Galleries will appear here after the races.</p>
+            {/* Featured Event Carousel — pindah ke bawah per photographer
+                feedback. Bukan landing CTA; jadi discovery section selepas
+                runner browse semua galleries + races. */}
+            {highlightedEvents.length > 0 && (
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-100px" }}
+                >
+                    <div className="flex items-end justify-between mb-10">
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Featured
+                            </div>
+                            <h2 className="text-3xl font-display font-black text-white tracking-tight italic uppercase">Featured Events</h2>
+                            <p className="text-slate-400 font-medium">Spotlight events curated for the community.</p>
                         </div>
-                    )}
-                </div>
-            </motion.section>
+                    </div>
+                    <EventCarousel events={highlightedEvents} />
+                </motion.section>
+            )}
 
             {/* SEO: About MarathonHub — entity-rich Malay+English copy
                 aimed at Google + ChatGPT/Claude/Perplexity. Plain prose
