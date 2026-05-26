@@ -26,6 +26,26 @@ class Event(Base):
     is_highlight = Column(Boolean, default=False)
     cover_image_url = Column(String, nullable=True)
     highlight_images_json = Column(Text, default="[]") # JSON list of image URLs
+
+    # Race calendar extensions
+    state = Column(String, nullable=True, index=True)  # "Selangor" | "KL" | "Penang" — for filter
+    race_type = Column(String, nullable=True, index=True)  # "road" | "trail" | "fun_run"
+    start_time = Column(String, nullable=True)  # "5:30 AM" — display only
+    registration_url = Column(String, nullable=True)
+    registration_close_at = Column(DateTime, nullable=True)
+    fee_min = Column(Integer, nullable=True)  # RM
+    fee_max = Column(Integer, nullable=True)  # RM
+    categories_json = Column(Text, default="[]")  # [{label, distance_km, fee, slots_state}]
+    bib_pickup_info = Column(Text, nullable=True)
+    gpx_url = Column(String, nullable=True)
+    organizer_url = Column(String, nullable=True)
+
+    # Recap-only fields (auto-displayed when computed_status=Past)
+    participant_count = Column(Integer, nullable=True)
+    weather_temp_c = Column(Integer, nullable=True)
+    winners_json = Column(Text, default="[]")  # [{category, name, time, gender}]
+    recap_summary = Column(Text, nullable=True)  # AI-generated paragraph
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

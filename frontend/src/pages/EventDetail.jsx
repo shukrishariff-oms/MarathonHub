@@ -6,6 +6,7 @@ import api from '../api';
 import { safeParse } from '../utils/safeJson';
 import FaceSearchPanel from '../components/FaceSearchPanel'; // eslint-disable-line no-unused-vars -- preserved for re-enable when Photohawk auth gate lifts
 import PhotographerDirectory from '../components/PhotographerDirectory';
+import RaceCalendarBlock from '../components/RaceCalendarBlock';
 
 export default function EventDetail() {
     const { slug } = useParams();
@@ -325,6 +326,11 @@ export default function EventDetail() {
                     </div>
                 </div>
             </motion.section>
+
+            {/* ── Race Calendar Info (auto-switch upcoming vs recap) ── */}
+            {event && (event.fee_min || event.registration_url || event.categories_json !== '[]' || event.recap_summary || event.participant_count) && (
+                <RaceCalendarBlock event={event} />
+            )}
 
             {/* Face Search — appears right under hero, above description.
                 Component handles its own visibility (hides if no assignments). */}

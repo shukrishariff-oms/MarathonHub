@@ -197,6 +197,41 @@ def check_and_migrate_db():
             except Exception as e:
                 print(f"Slug backfill skipped: {e}")
 
+            # Race calendar columns — additive migration, idempotent.
+            # Each column added separately so a partial migration on a
+            # previous boot doesn't block subsequent ones.
+            try:
+                event_cols = {c['name'] for c in inspector.get_columns("events")}
+                race_cols = [
+                    ("state", "VARCHAR"),
+                    ("race_type", "VARCHAR"),
+                    ("start_time", "VARCHAR"),
+                    ("registration_url", "VARCHAR"),
+                    ("registration_close_at", "DATETIME"),
+                    ("fee_min", "INTEGER"),
+                    ("fee_max", "INTEGER"),
+                    ("categories_json", "TEXT"),
+                    ("bib_pickup_info", "TEXT"),
+                    ("gpx_url", "VARCHAR"),
+                    ("organizer_url", "VARCHAR"),
+                    ("participant_count", "INTEGER"),
+                    ("weather_temp_c", "INTEGER"),
+                    ("winners_json", "TEXT"),
+                    ("recap_summary", "TEXT"),
+                ]
+                added = []
+                for col_name, col_type in race_cols:
+                    if col_name not in event_cols:
+                        conn.execute(text(f"ALTER TABLE events ADD COLUMN {col_name} {col_type}"))
+                        added.append(col_name)
+                if added:
+                    print(f"Migrating database: Added race-calendar columns: {', '.join(added)}")
+                # Index on state and race_type for filter queries
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_events_state ON events (state)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_events_race_type ON events (race_type)"))
+            except Exception as e:
+                print(f"Race-calendar migration skipped: {e}")
+
             # One-time cleanup: re-slug events with redundant trailing year
             # (e.g. "twincity-marathon-2026-2026" -> "twincity-marathon-2026",
             #  "score-marathon-2026-by-aia-vitality-2026" ->
@@ -524,6 +559,9 @@ def read_events(
     search: Optional[str] = None,
     month: Optional[str] = None,
     location: Optional[str] = None,
+    state: Optional[str] = None,
+    race_type: Optional[str] = None,
+    distance: Optional[str] = None,
     is_highlight: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
@@ -543,6 +581,20 @@ def read_events(
 
     if location:
         query = query.filter(models.Event.location.contains(location))
+
+    if state:
+        query = query.filter(models.Event.state == state)
+
+    if race_type:
+        query = query.filter(models.Event.race_type == race_type)
+
+    if distance:
+        # Match against distances_json or categories_json — substring is safe
+        # because labels like "FM 42K", "HM 21K" are unique enough.
+        query = query.filter(
+            (models.Event.distances_json.contains(distance)) |
+            (models.Event.categories_json.contains(distance))
+        )
 
     if month:
         # month is "YYYY-MM"
@@ -598,6 +650,91 @@ def read_event_by_slug(slug: str, db: Session = Depends(get_db)):
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     return db_event
+
+
+@app.get("/api/race-calendar/stats")
+def race_calendar_stats(db: Session = Depends(get_db)):
+    """Hero-banner stats for the race calendar page.
+
+    Returns 4 numbers used by the calendar landing:
+      - upcoming: races with date >= tomorrow
+      - photographers: visible photographers
+      - past: races with date < today (for "X recap pages indexed")
+      - photos: sum of gallery_photo_count across all assignments
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+
+    today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+    tomorrow_start = today_start + timedelta(days=1)
+
+    upcoming = (
+        db.query(func.count(models.Event.id))
+        .filter(models.Event.date >= tomorrow_start)
+        .scalar()
+    ) or 0
+    past = (
+        db.query(func.count(models.Event.id))
+        .filter(models.Event.date < today_start)
+        .scalar()
+    ) or 0
+    photographers = (
+        db.query(func.count(models.Photographer.id))
+        .filter(models.Photographer.is_public == True)
+        .scalar()
+    ) or 0
+    photos = (
+        db.query(func.coalesce(func.sum(models.Assignment.gallery_photo_count), 0))
+        .scalar()
+    ) or 0
+
+    return {
+        "upcoming": upcoming,
+        "photographers": photographers,
+        "past": past,
+        "photos": int(photos),
+    }
+
+
+@app.get("/api/race-calendar/filters")
+def race_calendar_filters(db: Session = Depends(get_db)):
+    """Distinct values for filter pills (state, race_type, distance).
+
+    Computed dynamically so admin doesn't need to maintain a separate
+    enum table. Filters out NULLs and empty strings.
+    """
+    states = (
+        db.query(models.Event.state)
+        .filter(models.Event.state.isnot(None), models.Event.state != "")
+        .distinct()
+        .all()
+    )
+    race_types = (
+        db.query(models.Event.race_type)
+        .filter(models.Event.race_type.isnot(None), models.Event.race_type != "")
+        .distinct()
+        .all()
+    )
+
+    # Distances are nested in JSON arrays — collect from distances_json across
+    # events and de-dupe. Cheap because <500 events.
+    import json as _json
+    distance_set = set()
+    for (dj,) in db.query(models.Event.distances_json).all():
+        if not dj:
+            continue
+        try:
+            for d in _json.loads(dj):
+                if isinstance(d, str) and d.strip():
+                    distance_set.add(d.strip())
+        except Exception:
+            pass
+
+    return {
+        "states": sorted([s[0] for s in states]),
+        "race_types": sorted([r[0] for r in race_types]),
+        "distances": sorted(distance_set),
+    }
 
 
 @app.get("/api/events/{event_id}/related")

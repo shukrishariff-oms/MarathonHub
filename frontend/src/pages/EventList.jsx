@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal, X, Footprints } from 'lucide-react';
+import { Search, Filter, Calendar as CalendarIcon, SlidersHorizontal, X, Footprints, MapPin, Mountain } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
 import EventCard from '../components/EventCard';
 import { safeParse } from '../utils/safeJson';
+
+// Race-type options for filter pills (matches admin enum).
+const RACE_TYPE_OPTIONS = [
+    { key: 'road', label: 'Road' },
+    { key: 'trail', label: 'Trail' },
+    { key: 'fun_run', label: 'Fun Run' },
+    { key: 'ultra', label: 'Ultra' },
+];
 
 // Normalize distance labels to canonical KM values for filtering.
 // Admin-entered strings vary ("Full Marathon", "42KM", "42 km") — match all.
@@ -33,6 +41,10 @@ export default function EventList() {
     const [status, setStatus] = useState('All');
     const [monthFilter, setMonthFilter] = useState(''); // e.g. '2026-05'
     const [distanceFilter, setDistanceFilter] = useState(''); // e.g. '42KM'
+    const [stateFilter, setStateFilter] = useState(''); // e.g. 'Selangor'
+    const [raceTypeFilter, setRaceTypeFilter] = useState(''); // e.g. 'road'
+    const [stats, setStats] = useState(null); // { upcoming, photographers, past, photos }
+    const [availableStates, setAvailableStates] = useState([]); // distinct from backend
     const [loading, setLoading] = useState(true);
     const location = useLocation();
     const navigate = useNavigate();
@@ -43,12 +55,24 @@ export default function EventList() {
         const initialStatus = queryParams.get('status') || 'All';
         const initialMonth = queryParams.get('month') || '';
         const initialDistance = queryParams.get('distance') || '';
+        const initialState = queryParams.get('state') || '';
+        const initialRaceType = queryParams.get('race_type') || '';
 
         setSearch(initialSearch);
         setStatus(initialStatus);
         setMonthFilter(initialMonth);
         setDistanceFilter(initialDistance);
+        setStateFilter(initialState);
+        setRaceTypeFilter(initialRaceType);
     }, [location.search]);
+
+    // Load race-calendar stats + filter options once on mount
+    useEffect(() => {
+        api.get('/race-calendar/stats').then(r => setStats(r.data)).catch(() => {});
+        api.get('/race-calendar/filters').then(r => {
+            setAvailableStates(r.data.states || []);
+        }).catch(() => {});
+    }, []);
 
     // Helper: update URL when month filter changes (keeps filter shareable)
     const applyMonthFilter = (monthKey) => {
@@ -65,15 +89,31 @@ export default function EventList() {
         navigate(`/events?${params.toString()}`, { replace: false });
     };
 
+    const applyStateFilter = (st) => {
+        const params = new URLSearchParams(location.search);
+        if (st) params.set('state', st);
+        else params.delete('state');
+        navigate(`/events?${params.toString()}`, { replace: false });
+    };
+
+    const applyRaceTypeFilter = (rt) => {
+        const params = new URLSearchParams(location.search);
+        if (rt) params.set('race_type', rt);
+        else params.delete('race_type');
+        navigate(`/events?${params.toString()}`, { replace: false });
+    };
+
     useEffect(() => {
         fetchEvents();
-    }, [search, status]);
+    }, [search, status, stateFilter, raceTypeFilter]);
 
     const fetchEvents = () => {
         setLoading(true);
         let url = `/events?limit=100`;
         if (status !== 'All') url += `&status=${status}`;
-        if (search) url += `&search=${search}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (stateFilter) url += `&state=${encodeURIComponent(stateFilter)}`;
+        if (raceTypeFilter) url += `&race_type=${encodeURIComponent(raceTypeFilter)}`;
 
         api.get(url)
             .then(res => {
@@ -137,7 +177,7 @@ export default function EventList() {
                     animate={{ opacity: 1, x: 0 }}
                     className="text-4xl font-display font-black text-white tracking-tighter uppercase italic"
                 >
-                    EXPLORE <span className="text-gradient pr-2">EVENTS</span>
+                    RACE <span className="text-gradient pr-2">CALENDAR</span>
                 </motion.h1>
                 <motion.p
                     initial={{ opacity: 0, x: -20 }}
@@ -145,9 +185,31 @@ export default function EventList() {
                     transition={{ delay: 0.1 }}
                     className="text-slate-400 font-medium"
                 >
-                    Discover the most extreme racing events on the planet.
+                    Larian akan datang & recap event lepas — cari, lari, dapat semula gambar.
                 </motion.p>
             </header>
+
+            {/* Stats hero banner */}
+            {stats && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="grid grid-cols-2 md:grid-cols-4 gap-3"
+                >
+                    {[
+                        { label: 'Race Akan Datang', value: stats.upcoming },
+                        { label: 'Fotografer', value: stats.photographers },
+                        { label: 'Race Habis (Recap)', value: stats.past },
+                        { label: 'Gambar Indexed', value: stats.photos >= 1000 ? `${(stats.photos/1000).toFixed(1).replace('.0','')}K` : stats.photos },
+                    ].map((s, i) => (
+                        <div key={i} className="glass-card p-4 text-center">
+                            <div className="text-3xl md:text-4xl font-black text-gradient">{s.value}</div>
+                            <div className="text-[10px] md:text-xs text-slate-400 uppercase tracking-wider mt-1 font-bold">{s.label}</div>
+                        </div>
+                    ))}
+                </motion.div>
+            )}
 
             {/* Premium Filters */}
             <motion.div
@@ -222,6 +284,88 @@ export default function EventList() {
                     </button>
                 )}
             </motion.div>
+
+            {/* Race Type Filter Chips */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.27 }}
+                className="flex flex-wrap items-center gap-2"
+            >
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mr-1">
+                    <Mountain className="w-3.5 h-3.5" />
+                    Jenis
+                </div>
+                {RACE_TYPE_OPTIONS.map(opt => {
+                    const isActive = raceTypeFilter === opt.key;
+                    return (
+                        <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => applyRaceTypeFilter(isActive ? '' : opt.key)}
+                            className={`px-4 py-2 min-h-[40px] rounded-full text-sm font-bold transition-all active:scale-95 ${
+                                isActive
+                                    ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
+                                    : 'bg-white/5 text-slate-300 hover:bg-primary/20 hover:text-primary border border-white/5'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    );
+                })}
+                {raceTypeFilter && (
+                    <button
+                        type="button"
+                        onClick={() => applyRaceTypeFilter('')}
+                        className="flex items-center gap-1 px-3 py-2 min-h-[36px] rounded-full text-xs font-bold text-slate-400 hover:text-white transition-colors active:scale-95"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                        Reset
+                    </button>
+                )}
+            </motion.div>
+
+            {/* State Filter Chips (only show if backend has any) */}
+            {availableStates.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-wrap items-center gap-2"
+                >
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mr-1">
+                        <MapPin className="w-3.5 h-3.5" />
+                        Negeri
+                    </div>
+                    {availableStates.map(st => {
+                        const isActive = stateFilter === st;
+                        return (
+                            <button
+                                key={st}
+                                type="button"
+                                onClick={() => applyStateFilter(isActive ? '' : st)}
+                                className={`px-4 py-2 min-h-[40px] rounded-full text-sm font-bold transition-all active:scale-95 ${
+                                    isActive
+                                        ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
+                                        : 'bg-white/5 text-slate-300 hover:bg-primary/20 hover:text-primary border border-white/5'
+                                }`}
+                            >
+                                {st}
+                            </button>
+                        );
+                    })}
+                    {stateFilter && (
+                        <button
+                            type="button"
+                            onClick={() => applyStateFilter('')}
+                            className="flex items-center gap-1 px-3 py-2 min-h-[36px] rounded-full text-xs font-bold text-slate-400 hover:text-white transition-colors active:scale-95"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Reset
+                        </button>
+                    )}
+                </motion.div>
+            )}
 
             {/* Active Month Filter Banner */}
             <AnimatePresence>

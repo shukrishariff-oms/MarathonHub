@@ -144,14 +144,41 @@ class EventBase(BaseModel):
     cover_image_url: Optional[str] = None
     highlight_images_json: Optional[str] = "[]"
 
+    # Race calendar extensions (all optional — backwards compatible)
+    state: Optional[str] = None
+    race_type: Optional[str] = None
+    start_time: Optional[str] = None
+    registration_url: Optional[str] = None
+    registration_close_at: Optional[datetime] = None
+    fee_min: Optional[int] = None
+    fee_max: Optional[int] = None
+    categories_json: Optional[str] = "[]"
+    bib_pickup_info: Optional[str] = None
+    gpx_url: Optional[str] = None
+    organizer_url: Optional[str] = None
+    participant_count: Optional[int] = None
+    weather_temp_c: Optional[int] = None
+    winners_json: Optional[str] = "[]"
+    recap_summary: Optional[str] = None
+
     @field_validator("cover_image_url")
     @classmethod
     def _check_cover_image_url(cls, v: Optional[str]) -> Optional[str]:
         return _validate_optional_url(v)
 
+    @field_validator("registration_url", "gpx_url", "organizer_url")
+    @classmethod
+    def _check_race_urls(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_optional_url(v)
+
     @field_validator("distances_json")
     @classmethod
     def _check_distances(cls, v: str) -> str:
+        return _validate_json_list_string(v) or "[]"
+
+    @field_validator("categories_json", "winners_json")
+    @classmethod
+    def _check_race_json_lists(cls, v: Optional[str]) -> Optional[str]:
         return _validate_json_list_string(v) or "[]"
 
     @field_validator("highlight_images_json")
@@ -191,6 +218,21 @@ class Event(EventBase):
             'is_highlight': obj.is_highlight,
             'cover_image_url': obj.cover_image_url,
             'highlight_images_json': obj.highlight_images_json,
+            'state': getattr(obj, 'state', None),
+            'race_type': getattr(obj, 'race_type', None),
+            'start_time': getattr(obj, 'start_time', None),
+            'registration_url': getattr(obj, 'registration_url', None),
+            'registration_close_at': getattr(obj, 'registration_close_at', None),
+            'fee_min': getattr(obj, 'fee_min', None),
+            'fee_max': getattr(obj, 'fee_max', None),
+            'categories_json': getattr(obj, 'categories_json', '[]') or '[]',
+            'bib_pickup_info': getattr(obj, 'bib_pickup_info', None),
+            'gpx_url': getattr(obj, 'gpx_url', None),
+            'organizer_url': getattr(obj, 'organizer_url', None),
+            'participant_count': getattr(obj, 'participant_count', None),
+            'weather_temp_c': getattr(obj, 'weather_temp_c', None),
+            'winners_json': getattr(obj, 'winners_json', '[]') or '[]',
+            'recap_summary': getattr(obj, 'recap_summary', None),
             'created_at': obj.created_at,
             'updated_at': obj.updated_at,
             'assignments': obj.assignments
@@ -247,6 +289,21 @@ class EventPublic(Event):
             'is_highlight': obj.is_highlight,
             'cover_image_url': obj.cover_image_url,
             'highlight_images_json': obj.highlight_images_json,
+            'state': getattr(obj, 'state', None),
+            'race_type': getattr(obj, 'race_type', None),
+            'start_time': getattr(obj, 'start_time', None),
+            'registration_url': getattr(obj, 'registration_url', None),
+            'registration_close_at': getattr(obj, 'registration_close_at', None),
+            'fee_min': getattr(obj, 'fee_min', None),
+            'fee_max': getattr(obj, 'fee_max', None),
+            'categories_json': getattr(obj, 'categories_json', '[]') or '[]',
+            'bib_pickup_info': getattr(obj, 'bib_pickup_info', None),
+            'gpx_url': getattr(obj, 'gpx_url', None),
+            'organizer_url': getattr(obj, 'organizer_url', None),
+            'participant_count': getattr(obj, 'participant_count', None),
+            'weather_temp_c': getattr(obj, 'weather_temp_c', None),
+            'winners_json': getattr(obj, 'winners_json', '[]') or '[]',
+            'recap_summary': getattr(obj, 'recap_summary', None),
             'created_at': obj.created_at,
             'updated_at': obj.updated_at,
             'assignments': obj.assignments
