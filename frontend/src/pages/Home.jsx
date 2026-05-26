@@ -188,7 +188,7 @@ export default function Home() {
                                     <input
                                         type="text"
                                         className="w-full pl-14 pr-4 py-4 bg-transparent text-white placeholder:text-slate-500 outline-none font-medium"
-                                        placeholder="Search event name, bib number or race photos"
+                                        placeholder="Cari nama event atau organizer"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
