@@ -120,12 +120,12 @@ export default function Home() {
                 <div className="max-w-4xl mx-auto text-center space-y-6 px-2">
                     <h1
                         id="seo-hero-h1"
-                        className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-display font-black text-white tracking-tighter leading-[1.05] uppercase italic"
+                        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black text-white tracking-tighter leading-[1.1] uppercase italic"
                     >
-                        Official <span className="text-gradient">Marathon</span> &amp; Running Event Photos <span className="text-gradient">Malaysia</span>
+                        Best <span className="text-gradient">Marathon</span> &amp; Running Event Photos <span className="text-gradient">Malaysia</span>
                     </h1>
-                    <p className="text-base md:text-lg text-slate-300 font-medium max-w-3xl mx-auto leading-relaxed">
-                        Search and download official marathon, fun run, cycling, and running event photos across Malaysia.
+                    <p className="text-sm md:text-base text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
+                        Search and browse marathon, fun run, cycling, and running event photos across Malaysia.
                     </p>
                     <div className="flex flex-wrap justify-center gap-3 pt-2">
                         <Link
