@@ -1017,26 +1017,26 @@ async def face_search(
     # BROWSE_ONLY card so runners still see the photographer + gallery link
     # and can click through to scan on the photographer's own site.
     #
-    # `cloudrun_galleries` is the list of (assignment_id, gallery_url) tuples
-    # built above for what would have been the fanout. We reuse it to know
-    # exactly which assignments to emit as cards, so any sort/dedup work
-    # already done is preserved.
-    aid_to_assignment = {}
-    cloudrun_galleries = []
-    for engine_guid, gallery_url in fanout:
-        for a in assignments:
-            if a.engine_guid == engine_guid:
-                aid_to_assignment[a.id] = a
-                cloudrun_galleries.append((a.id, gallery_url))
-                break
+    # We iterate the raw assignment list directly — the old engine_guid
+    # lookup pattern silently dropped any photohawk assignment whose
+    # gallery 500'd on the metadata fetch (no cached engine_guid → no
+    # match in aid_to_assignment). With face-search disabled we don't
+    # need engine_guid at all; gallery_url is enough.
+    photohawk_assignments = [
+        a for a in assignments
+        if a.gallery_url
+        and photohawk.is_photohawk_gallery_url(a.gallery_url)
+        and a.photographer
+    ]
 
     results = []
     total_matches = 0
-    errors = list(resolve_errors)
-    for aid, _gallery_url in cloudrun_galleries:
-        a = aid_to_assignment.get(aid)
-        if not a or not a.photographer:
-            continue
+    # Resolve errors are no longer user-facing — they were only useful when
+    # a 500'd gallery meant face-search would fail for that photog. Now
+    # every photog gets a BROWSE_ONLY card with the gallery link, so the
+    # 500 on metadata fetch is invisible to the runner. Drop them entirely.
+    errors: list[str] = []
+    for a in photohawk_assignments:
         results.append({
             "assignment_id": a.id,
             "photographer": {
