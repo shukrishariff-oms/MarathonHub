@@ -90,16 +90,9 @@ export default function PhotographerDirectory({ event, assignments }) {
                                     </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-white font-black text-sm uppercase italic truncate">
-                                            {a.photographer.name}
-                                        </p>
-                                        {a.is_pinned && (
-                                            <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/20 text-primary flex-shrink-0">
-                                                Pinned
-                                            </span>
-                                        )}
-                                    </div>
+                                    <p className="text-white font-black text-sm uppercase italic truncate">
+                                        {a.photographer.name}
+                                    </p>
                                     <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest truncate">
                                         Cari di gallery mereka ↗
                                     </p>
