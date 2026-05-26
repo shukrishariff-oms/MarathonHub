@@ -73,7 +73,7 @@ export default function PhotographerList() {
                     transition={{ delay: 0.2 }}
                     className="text-lg text-slate-400 font-medium max-w-xl mx-auto mt-8"
                 >
-                    The official hub for event photography. Find your triumph.
+                    The hub for event photography. Find your triumph.
                 </motion.p>
 
                 {/* Enhanced Search Bar */}

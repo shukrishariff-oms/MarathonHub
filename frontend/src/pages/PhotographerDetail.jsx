@@ -93,7 +93,7 @@ export default function PhotographerDetail() {
                         {photographer.logo_url ? (
                             <img
                                 src={photographer.logo_url}
-                                alt={`${photographer.name} — official Malaysia race photographer`}
+                                alt={`${photographer.name} — Malaysia race photographer`}
                                 loading="eager"
                                 decoding="async"
                                 className="relative h-48 w-48 lg:h-64 lg:w-64 rounded-[2.5rem] object-cover border-4 border-white/5 shadow-2xl group-hover:scale-[1.02] transition-transform duration-500"

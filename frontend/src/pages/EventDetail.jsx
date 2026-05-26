@@ -414,7 +414,7 @@ export default function EventDetail() {
                                         {photographer.logo_url ? (
                                             <img
                                                 src={photographer.logo_url}
-                                                alt={`${photographer.name} — official race photographer for ${event.name}`}
+                                                alt={`${photographer.name} — race photographer for ${event.name}`}
                                                 loading="lazy"
                                                 decoding="async"
                                                 className="h-14 w-14 rounded-xl object-cover border-2 border-white shadow-md"
@@ -475,7 +475,7 @@ export default function EventDetail() {
                         <div className="col-span-full py-24 text-center glass-card bg-slate-50/50 border-dashed">
                             <Camera className="w-16 h-16 text-slate-200 mx-auto mb-6" />
                             <h3 className="text-xl font-display font-bold text-slate-900 mb-2">No galleries yet</h3>
-                            <p className="text-slate-500 font-medium">Official race photos will appear here after the event.</p>
+                            <p className="text-slate-500 font-medium">Race photos will appear here after the event.</p>
                         </div>
                     )}
                 </div>
@@ -507,7 +507,7 @@ export default function EventDetail() {
                                 <Link
                                     to={`/events/${r.slug || r.id}`}
                                     className="block h-full"
-                                    aria-label={`${r.name} — official race photos`}
+                                    aria-label={`${r.name} — race photos`}
                                 >
                                     {r.cover_image_url && (
                                         <img

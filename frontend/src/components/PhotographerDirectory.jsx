@@ -104,7 +104,7 @@ export default function PhotographerDirectory({ event, assignments }) {
                 </div>
 
                 <p className="text-[11px] text-slate-500 font-medium text-center pt-2 border-t border-white/5">
-                    Semua link adalah official photographer untuk event ni. MarathonHub tidak menjual atau menyimpan gambar — anda beli terus dari photographer.
+                    Semua link adalah photographer rasmi untuk event ni. MarathonHub tidak menjual atau menyimpan gambar — anda beli terus dari photographer.
                 </p>
             </div>
         </motion.section>
