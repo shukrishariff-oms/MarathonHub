@@ -1775,8 +1775,25 @@ def llms_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap_xml(db: Session = Depends(get_db)):
-    """Generate sitemap from DB events + photographers."""
+    """Generate sitemap from DB events + photographers, with Google image
+    extension entries for cover photos. Image sitemap helps Google Images
+    index race photos which is a major referral source for runners
+    searching for their finish-line moment."""
     from datetime import datetime
+    import html as _html
+
+    def _abs(u: str) -> str:
+        if not u:
+            return ""
+        if u.startswith("http://") or u.startswith("https://"):
+            return u
+        if u.startswith("/"):
+            return f"{SITE_URL}{u}"
+        return f"{SITE_URL}/{u}"
+
+    def _xml_escape(s: str) -> str:
+        return _html.escape(s or "", quote=True)
+
     urls = []
 
     # Static pages
@@ -1796,7 +1813,32 @@ def sitemap_xml(db: Session = Depends(get_db)):
                 # Prefer slug URL when available — it's the canonical SEO form.
                 slug = getattr(e, "slug", None)
                 event_path = f"/events/{slug}" if slug else f"/events/{e.id}"
-                urls.append(f"  <url><loc>{SITE_URL}{event_path}</loc>{lastmod}<changefreq>weekly</changefreq><priority>0.8</priority></url>")
+
+                # Image extension — Google Images discovery for race covers.
+                img_block = ""
+                cover = getattr(e, "cover_image_url", None)
+                if cover:
+                    cover_abs = _abs(cover)
+                    # Build descriptive caption: "<event name> — <location> — official race photos"
+                    name = getattr(e, "name", "") or ""
+                    loc = getattr(e, "location", "") or ""
+                    caption = f"{name} race photos"
+                    if loc:
+                        caption += f" — {loc}"
+                    caption += " — official marathon photographer Malaysia"
+                    img_block = (
+                        "<image:image>"
+                        f"<image:loc>{_xml_escape(cover_abs)}</image:loc>"
+                        f"<image:title>{_xml_escape(name)}</image:title>"
+                        f"<image:caption>{_xml_escape(caption)}</image:caption>"
+                        "</image:image>"
+                    )
+
+                urls.append(
+                    f"  <url><loc>{SITE_URL}{event_path}</loc>{lastmod}"
+                    f"<changefreq>weekly</changefreq><priority>0.8</priority>"
+                    f"{img_block}</url>"
+                )
             except Exception:
                 continue
     except Exception:
@@ -1807,7 +1849,24 @@ def sitemap_xml(db: Session = Depends(get_db)):
         photographers = db.query(models.Photographer).all()
         for p in photographers:
             try:
-                urls.append(f"  <url><loc>{SITE_URL}/photographers/{p.id}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>")
+                # Image extension for photographer logo (helps brand image search)
+                img_block = ""
+                logo = getattr(p, "logo_url", None)
+                if logo:
+                    logo_abs = _abs(logo)
+                    p_name = getattr(p, "name", "") or ""
+                    img_block = (
+                        "<image:image>"
+                        f"<image:loc>{_xml_escape(logo_abs)}</image:loc>"
+                        f"<image:title>{_xml_escape(p_name)}</image:title>"
+                        f"<image:caption>{_xml_escape(p_name)} — Malaysia race photographer logo</image:caption>"
+                        "</image:image>"
+                    )
+                urls.append(
+                    f"  <url><loc>{SITE_URL}/photographers/{p.id}</loc>"
+                    f"<changefreq>monthly</changefreq><priority>0.6</priority>"
+                    f"{img_block}</url>"
+                )
             except Exception:
                 continue
     except Exception:
@@ -1815,7 +1874,8 @@ def sitemap_xml(db: Session = Depends(get_db)):
 
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n'
+        '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n'
         + "\n".join(urls)
         + "\n</urlset>\n"
     )
