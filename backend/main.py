@@ -788,9 +788,13 @@ async def face_search(
         raise HTTPException(status_code=400, detail="Empty selfie upload")
     if len(raw) > 12 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Selfie too large (max 12MB)")
-    selfie_data_url = photohawk._selfie_to_data_url(
-        raw, content_type=selfie.content_type or "image/jpeg",
-    )
+    # Note: we used to convert the selfie to a data URL here and forward it
+    # to Photohawk's Cloud Run face-search endpoint. That endpoint now
+    # rejects all non-Photohawk-origin POSTs (Turnstile / token gate), so
+    # face search via fan-out is currently disabled. The selfie bytes are
+    # still validated above so the upload contract is unchanged for the
+    # frontend; the actual matching is just skipped and every Photohawk
+    # gallery is surfaced as a BROWSE_ONLY card with the gallery link.
 
     # Lazy-resolve any assignment that doesn't have engine_guid yet.
     # CRITICAL: this used to be a serial loop. With 30+ photographers per
@@ -1007,77 +1011,32 @@ async def face_search(
             "errors": resolve_errors + extra_errors or ["No searchable galleries for this event."],
         }
 
-    # Run the parallel search via Cloud Run endpoint — returns rich match
-    # objects with `previews.{xs,sm,md,lg,xl}.location` URLs (mediav2
-    # thumbnails) instead of bare GUIDs. We expose only the small `xs`
-    # preview to runners; full-res stays behind the photographer's paywall.
-    # `fanout` is list of (engine_guid, gallery_url) tuples — we map back
-    # to assignment.id since cloudrun keys responses by aid.
+    # Photohawk face-search via Cloud Run is currently disabled — Photohawk
+    # has added an auth layer (Turnstile / token) we can't replicate. Until
+    # that gets sorted, we surface every Photohawk assignment as a
+    # BROWSE_ONLY card so runners still see the photographer + gallery link
+    # and can click through to scan on the photographer's own site.
+    #
+    # `cloudrun_galleries` is the list of (assignment_id, gallery_url) tuples
+    # built above for what would have been the fanout. We reuse it to know
+    # exactly which assignments to emit as cards, so any sort/dedup work
+    # already done is preserved.
     aid_to_assignment = {}
     cloudrun_galleries = []
     for engine_guid, gallery_url in fanout:
-        # Find the assignment row for this engine
         for a in assignments:
             if a.engine_guid == engine_guid:
                 aid_to_assignment[a.id] = a
                 cloudrun_galleries.append((a.id, gallery_url))
                 break
 
-    raw_results = photohawk.fan_out_search_cloudrun(
-        selfie_data_url, cloudrun_galleries,
-    )
-
     results = []
     total_matches = 0
     errors = list(resolve_errors)
-    for aid, block in raw_results.items():
+    for aid, _gallery_url in cloudrun_galleries:
         a = aid_to_assignment.get(aid)
         if not a or not a.photographer:
             continue
-        hits = block.get("hits") or []
-        err = block.get("error")
-        if err:
-            errors.append(
-                f"{a.photographer.name}: {err}"
-            )
-        # Slim down hit payload — keep ONLY xs preview (small thumbnail) so
-        # runners can confirm a match visually without us undercutting the
-        # photographer's paid prints. Full-res `xl` stays out of our API
-        # response entirely. Score+filename also kept for UI sorting.
-        slim = []
-        for hit in hits:
-            if not isinstance(hit, dict):
-                continue
-            guid = hit.get("guid")
-            if not guid:
-                continue
-            previews = hit.get("previews") or {}
-            xs = (previews.get("xs") or {}).get("location")
-            sm = (previews.get("sm") or {}).get("location")
-            # Use sm only as fallback if xs missing; never expose md/lg/xl.
-            thumb_url = xs or sm
-            score = hit.get("matchScore") or hit.get("score")
-            slim.append({
-                "guid": guid,
-                "score": score,
-                "thumbnail_url": thumb_url,
-                "name": hit.get("name"),
-            })
-        if slim:
-            scores = [s["score"] for s in slim if s.get("score") is not None]
-            score_summary = (
-                f"min={min(scores):.2f} max={max(scores):.2f} avg={sum(scores)/len(scores):.2f}"
-                if scores else "scores=n/a"
-            )
-            logger.info(
-                "face-search event=%s photographer=%s threshold=%.2f matches=%d %s",
-                event_id,
-                a.photographer.name if a.photographer else "?",
-                threshold,
-                len(slim),
-                score_summary,
-            )
-        total_matches += len(slim)
         results.append({
             "assignment_id": a.id,
             "photographer": {
@@ -1089,12 +1048,13 @@ async def face_search(
             "gallery_url": a.gallery_url,
             "tenant_guid": a.tenant_guid,
             "cover_guid": a.cover_guid,
-            "match_count": len(slim),
-            "matches": slim[:50],  # cap per-photog to keep payload small
-            "error": err,
-            "coverage_status": _coverage_status(True, len(slim), a.gallery_photo_count),
-            "photo_count": a.gallery_photo_count,
+            "match_count": 0,
+            "matches": [],
+            "error": None,
             "platform": "photohawk",
+            "info_only": True,
+            "coverage_status": "BROWSE_ONLY",
+            "photo_count": a.gallery_photo_count,
         })
 
     # Sort: pinned photographers first, then most matches, then alphabetical.
