@@ -22,7 +22,7 @@ export default function EventDetail() {
     const handleCopyShare = async () => {
         setCopyState('copying');
         try {
-            const res = await api.get(`/share-text/event/${id}`);
+            const res = await api.get(`/share-text/event/${event.id}`);
             const text = res.data?.text || '';
             let copied = false;
 
