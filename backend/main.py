@@ -2000,6 +2000,50 @@ def get_blog_post(slug: str):
     return post
 
 
+@app.get("/blog/rss.xml", include_in_schema=False)
+def blog_rss_feed():
+    """RSS 2.0 feed for blog posts — helps Google Discover & feed readers."""
+    from xml.etree.ElementTree import Element, SubElement, tostring
+    import html as _html
+    from datetime import datetime as _dt
+
+    posts = _read_blog_posts(include_body=False)
+    rss = Element("rss", version="2.0")
+    rss.set("xmlns:atom", "http://www.w3.org/2005/Atom")
+    channel = SubElement(rss, "channel")
+    SubElement(channel, "title").text = "MarathonHub Blog"
+    SubElement(channel, "link").text = f"{SITE_URL}/blog"
+    SubElement(channel, "description").text = (
+        "Tips, panduan, dan info berguna untuk runner & photographer di Malaysia."
+    )
+    SubElement(channel, "language").text = "ms-my"
+    SubElement(channel, "lastBuildDate").text = _dt.utcnow().strftime(
+        "%a, %d %b %Y %H:%M:%S +0000"
+    )
+    atom_link = SubElement(channel, "{http://www.w3.org/2005/Atom}link")
+    atom_link.set("href", f"{SITE_URL}/blog/rss.xml")
+    atom_link.set("rel", "self")
+    atom_link.set("type", "application/rss+xml")
+
+    for post in posts[:20]:  # latest 20
+        item = SubElement(channel, "item")
+        SubElement(item, "title").text = post.get("title", "")
+        SubElement(item, "link").text = f"{SITE_URL}/blog/{post['slug']}"
+        SubElement(item, "guid").text = f"{SITE_URL}/blog/{post['slug']}"
+        SubElement(item, "description").text = _html.escape(
+            post.get("excerpt", "")
+        )
+        pub = post.get("published_at") or post.get("date", "")
+        if pub:
+            SubElement(item, "pubDate").text = pub
+        for cat in post.get("tags", []):
+            SubElement(item, "category").text = cat
+
+    xml_bytes = b'<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml_bytes += tostring(rss, encoding="unicode").encode("utf-8")
+    return Response(content=xml_bytes, media_type="application/rss+xml; charset=utf-8")
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     # Note: production traffic for marathonhub.ohmaishoot.com sits behind

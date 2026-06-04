@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, Calendar, BookOpen } from 'lucide-react';
+import { ArrowRight, Clock, Calendar, BookOpen, Search, X } from 'lucide-react';
 import api from '../api';
 
 export default function BlogList() {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTag, setActiveTag] = useState(null);
 
     useEffect(() => {
         api.get('/blog')
@@ -19,6 +21,25 @@ export default function BlogList() {
                 setLoading(false);
             });
     }, []);
+
+    // Collect all unique tags
+    const allTags = useMemo(() => {
+        const tagSet = new Set();
+        posts.forEach(p => p.tags?.forEach(t => tagSet.add(t)));
+        return Array.from(tagSet).sort();
+    }, [posts]);
+
+    // Filter posts by search + tag
+    const filteredPosts = useMemo(() => {
+        return posts.filter(p => {
+            const matchesSearch = !searchQuery || 
+                p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+            const matchesTag = !activeTag || p.tags?.includes(activeTag);
+            return matchesSearch && matchesTag;
+        });
+    }, [posts, searchQuery, activeTag]);
 
     if (loading) {
         return (
@@ -57,9 +78,58 @@ export default function BlogList() {
                 </motion.p>
             </header>
 
+            {/* Search + Filter */}
+            <div className="space-y-4">
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder="Cari artikel..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-11 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+                {allTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setActiveTag(null)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                !activeTag
+                                    ? 'bg-primary text-white'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                            }`}
+                        >
+                            Semua
+                        </button>
+                        {allTags.map(tag => (
+                            <button
+                                key={tag}
+                                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                    activeTag === tag
+                                        ? 'bg-primary text-white'
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                }`}
+                            >
+                                #{tag}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Posts grid */}
             <div className="space-y-6">
-                {posts.map((post, i) => {
+                {filteredPosts.map((post, i) => {
                     const isFeatured = i === 0;
                     return (
                         <motion.article
@@ -125,6 +195,13 @@ export default function BlogList() {
                     );
                 })}
 
+                {filteredPosts.length === 0 && posts.length > 0 && (
+                    <div className="text-center text-slate-400 py-12 glass-card rounded-2xl">
+                        <Search className="w-12 h-12 mx-auto mb-4 text-slate-500" />
+                        <p className="text-lg">Tiada artikel yang sepadan.</p>
+                        <p className="text-sm text-slate-500 mt-1">Cuba kata kunci lain atau tapis tag berbeza.</p>
+                    </div>
+                )}
                 {posts.length === 0 && (
                     <div className="text-center text-slate-400 py-12 glass-card rounded-2xl">
                         <BookOpen className="w-12 h-12 mx-auto mb-4 text-slate-500" />
