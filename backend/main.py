@@ -1621,8 +1621,11 @@ def _inject_meta(html, title, description, url, image=None, json_ld=None, body_e
     )
     html = html.replace("</head>", f"{extra_og}</head>", 1)
 
-    # Add canonical link if not present
-    if 'rel="canonical"' not in html:
+    # Add canonical link
+    # We replace any existing canonical link to ensure the event/photographer slug is the one indexed
+    if '<link rel="canonical"' in html:
+        html = re.sub(r'<link\s+rel="canonical"\s+href="[^"]*"\s*/?>', f'<link rel="canonical" href="{url_e}" />', html, count=1)
+    else:
         canonical = f'  <link rel="canonical" href="{url_e}" />\n'
         html = html.replace("</head>", f"{canonical}</head>", 1)
 
