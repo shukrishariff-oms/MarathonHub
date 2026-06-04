@@ -2031,12 +2031,14 @@ def get_site_setting(key: str, db: Session = Depends(get_db)):
 
 
 @app.put("/api/admin/site-settings/{key}", tags=["admin"])
-def update_site_setting(key: str, value: dict, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
-    """Update or create a site setting (admin only). Value is stored as JSON string."""
+async def update_site_setting(key: str, request: Request, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
+    """Update or create a site setting (admin only). Accepts any JSON value (string, dict, list)."""
     import json as _json
     from datetime import datetime as _dt
+    body = await request.json()
     setting = db.query(models.SiteSetting).filter(models.SiteSetting.key == key).first()
-    val_str = _json.dumps(value) if not isinstance(value, str) else value
+    # Always store as JSON string so round-trip is consistent
+    val_str = _json.dumps(body)
     if setting:
         setting.value = val_str
         setting.updated_at = _dt.utcnow()
