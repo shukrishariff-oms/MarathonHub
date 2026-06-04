@@ -15,8 +15,20 @@ export default function Home() {
     const [loadingUpcoming, setLoadingUpcoming] = useState(true);
     const [loadingRecent, setLoadingRecent] = useState(true);
     const navigate = useNavigate();
+    const [heroHeadline, setHeroHeadline] = useState('');
+    const [heroSubheadline, setHeroSubheadline] = useState('');
+    const [loadingHero, setLoadingHero] = useState(true);
 
     useEffect(() => {
+        // Fetch hero text
+        api.get('/site-settings')
+            .then(res => {
+                setHeroHeadline(res.data.hero_headline || '');
+                setHeroSubheadline(res.data.hero_subheadline || '');
+            })
+            .catch(err => console.error(err))
+            .finally(() => setLoadingHero(false));
+
         // Pull more upcoming events so we can split them into
         // "This Week" (≤7 days away) and the regular Upcoming row.
         api.get('/events?status=Upcoming&limit=20')
@@ -118,14 +130,17 @@ export default function Home() {
                 className="relative pt-2 md:pt-6 pb-2"
             >
                 <div className="max-w-4xl mx-auto text-center space-y-6 px-2">
-                    <h1
-                        id="seo-hero-h1"
-                        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black text-white tracking-tighter leading-[1.1] uppercase italic"
-                    >
-                        Best <span className="text-gradient">Marathon</span> &amp; Running Event Photos <span className="text-gradient">Malaysia</span>
-                    </h1>
+                    {loadingHero ? (
+                        <div className="h-24 animate-pulse bg-white/5 rounded-xl"></div>
+                    ) : (
+                        <h1
+                            id="seo-hero-h1"
+                            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black text-white tracking-tighter leading-[1.1] uppercase italic"
+                            dangerouslySetInnerHTML={{ __html: heroHeadline || 'Best <span class="text-gradient">Marathon</span> &amp; Running Event Photos <span class="text-gradient">Malaysia</span>' }}
+                        />
+                    )}
                     <p className="text-sm md:text-base text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
-                        Search and browse marathon, fun run, cycling, and running event photos across Malaysia.
+                        {heroSubheadline || 'Search and browse marathon, fun run, cycling, and running event photos across Malaysia.'}
                     </p>
                     <div className="flex justify-center pt-2">
                         <Link

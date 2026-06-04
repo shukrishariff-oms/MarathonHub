@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import AdminNavbar from './components/AdminNavbar';
+import AnalyticsScripts from './components/AnalyticsScripts';
 import usePageTracking from './hooks/usePageTracking';
 
 // Public pages — eagerly loaded since most users land here.
@@ -59,8 +60,10 @@ const AdminFallback = () => (
 function App() {
     usePageTracking();
     return (
-        <Suspense fallback={<AdminFallback />}>
-            <Routes>
+        <>
+            <AnalyticsScripts />
+            <Suspense fallback={<AdminFallback />}>
+                <Routes>
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Home />} />
                     <Route path="events" element={<EventList />} />
@@ -90,7 +93,8 @@ function App() {
                 <Route path="/admin/analytics/event/:eventId" element={<ProtectedRoute><AdminLayout><AdminEventAnalytics /></AdminLayout></ProtectedRoute>} />
                 <Route path="/admin/settings" element={<ProtectedRoute><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
             </Routes>
-        </Suspense>
+            </Suspense>
+        </>
     );
 }
 

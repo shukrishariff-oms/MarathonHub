@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, MessageCircle, Package, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, MessageCircle, Package, Plus, Trash2, AlertCircle, Megaphone, Share2, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 
@@ -11,6 +11,16 @@ export default function AdminSettings() {
 
     const [whatsappNumber, setWhatsappNumber] = useState('');
     const [packages, setPackages] = useState([]);
+    const [heroHeadline, setHeroHeadline] = useState('');
+    const [heroSubheadline, setHeroSubheadline] = useState('');
+    const [socialLinks, setSocialLinks] = useState({
+        facebook: '',
+        instagram: '',
+        tiktok: '',
+        x: ''
+    });
+    const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
+    const [metaPixelId, setMetaPixelId] = useState('');
 
     useEffect(() => {
         loadSettings();
@@ -23,6 +33,11 @@ export default function AdminSettings() {
             const data = res.data;
             setWhatsappNumber(data.whatsapp_number || '');
             setPackages(data.organizer_packages || []);
+            setHeroHeadline(data.hero_headline || '');
+            setHeroSubheadline(data.hero_subheadline || '');
+            setSocialLinks(data.social_links || { facebook: '', instagram: '', tiktok: '', x: '' });
+            setGoogleAnalyticsId(data.google_analytics_id || '');
+            setMetaPixelId(data.meta_pixel_id || '');
         } catch (err) {
             console.error('Failed to load settings', err);
             setError('Gagal memuatkan tetapan. Sila cuba lagi.');
@@ -40,11 +55,14 @@ export default function AdminSettings() {
             const token = localStorage.getItem('token');
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-            // Save WhatsApp number
+            // Save all settings
             await api.put(`/admin/site-settings/whatsapp_number`, whatsappNumber, { headers });
-
-            // Save packages
             await api.put(`/admin/site-settings/organizer_packages`, packages, { headers });
+            await api.put(`/admin/site-settings/hero_headline`, heroHeadline, { headers });
+            await api.put(`/admin/site-settings/hero_subheadline`, heroSubheadline, { headers });
+            await api.put(`/admin/site-settings/social_links`, socialLinks, { headers });
+            await api.put(`/admin/site-settings/google_analytics_id`, googleAnalyticsId, { headers });
+            await api.put(`/admin/site-settings/meta_pixel_id`, metaPixelId, { headers });
 
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
@@ -273,6 +291,131 @@ export default function AdminSettings() {
                             <p className="text-slate-500">Tiada pakej lagi. Klik "Tambah Pakej" untuk mula.</p>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Homepage Hero Setting */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <Megaphone className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Homepage Hero Text</h2>
+                        <p className="text-sm text-slate-400">Ayat utama yang pelawat nampak di halaman utama. Boleh guna HTML (contoh: <code>&lt;span class="text-gradient"&gt;</code>).</p>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Headline (H1)</label>
+                        <input
+                            type="text"
+                            value={heroHeadline}
+                            onChange={(e) => setHeroHeadline(e.target.value)}
+                            placeholder="Best <span class='text-gradient'>Marathon</span> Photos Malaysia"
+                            className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Subheadline</label>
+                        <textarea
+                            value={heroSubheadline}
+                            onChange={(e) => setHeroSubheadline(e.target.value)}
+                            placeholder="Search and browse marathon, fun run, and cycling event photos across Malaysia."
+                            rows={2}
+                            className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Social Media Links Setting */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <Share2 className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Social Media Links</h2>
+                        <p className="text-sm text-slate-400">Link ini akan dipaparkan di footer laman web.</p>
+                    </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Facebook URL</label>
+                        <input
+                            type="text"
+                            value={socialLinks.facebook}
+                            onChange={(e) => setSocialLinks({...socialLinks, facebook: e.target.value})}
+                            placeholder="https://facebook.com/ohmaishoot"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Instagram URL</label>
+                        <input
+                            type="text"
+                            value={socialLinks.instagram}
+                            onChange={(e) => setSocialLinks({...socialLinks, instagram: e.target.value})}
+                            placeholder="https://instagram.com/ohmaishoot"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TikTok URL</label>
+                        <input
+                            type="text"
+                            value={socialLinks.tiktok}
+                            onChange={(e) => setSocialLinks({...socialLinks, tiktok: e.target.value})}
+                            placeholder="https://tiktok.com/@ohmaishoot"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">X / Twitter URL</label>
+                        <input
+                            type="text"
+                            value={socialLinks.x}
+                            onChange={(e) => setSocialLinks({...socialLinks, x: e.target.value})}
+                            placeholder="https://x.com/ohmaishoot"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary/50"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Analytics Setting */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                        <BarChart3 className="w-5 h-5 text-yellow-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Analytics & Tracking</h2>
+                        <p className="text-sm text-slate-400">Masukkan ID untuk track traffic dan ROI dari organizer.</p>
+                    </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Google Analytics ID (G-XXXXXX)</label>
+                        <input
+                            type="text"
+                            value={googleAnalyticsId}
+                            onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+                            placeholder="G-XXXXXXXXXX"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 font-mono"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Meta Pixel ID</label>
+                        <input
+                            type="text"
+                            value={metaPixelId}
+                            onChange={(e) => setMetaPixelId(e.target.value)}
+                            placeholder="123456789012345"
+                            className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 font-mono"
+                        />
+                    </div>
                 </div>
             </div>
 
