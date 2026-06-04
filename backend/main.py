@@ -20,10 +20,13 @@ logger = logging.getLogger("marathonhub")
 def _client_ip(request: Request) -> str:
     """Best-effort real client IP behind a trusted reverse proxy.
 
-    Coolify/Traefik forwards the original IP in X-Forwarded-For. Without
-    this, every request looks like it's coming from the proxy and IP
-    hashing collapses all visitors into a single bucket.
+    Coolify/Traefik forwards the original IP in X-Forwarded-For. Cloudflare
+    passes it in CF-Connecting-IP.
     """
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
+    
     xff = request.headers.get("x-forwarded-for")
     if xff:
         # First hop is the original client. Strip whitespace, ignore empties.
@@ -2447,11 +2450,15 @@ def umami_script_proxy():
 async def umami_send_proxy(request: Request):
     """Proxy Umami event collector through MarathonHub domain."""
     body = await request.body()
+    
+    # Cloudflare passes real client IP in CF-Connecting-IP
+    client_ip = request.headers.get("cf-connecting-ip") or _client_ip(request)
+    
     headers = {
         "Content-Type": request.headers.get("content-type", "application/json"),
         "User-Agent": request.headers.get("user-agent", ""),
-        "X-Forwarded-For": request.headers.get("x-forwarded-for", _client_ip(request)),
-        "X-Real-IP": _client_ip(request),
+        "X-Forwarded-For": client_ip,
+        "X-Real-IP": client_ip,
         "Referer": request.headers.get("referer", ""),
     }
     try:
