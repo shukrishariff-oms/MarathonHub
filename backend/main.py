@@ -9,6 +9,8 @@ import shutil
 import os
 import uuid
 import logging
+import urllib.request
+import urllib.error
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -2415,6 +2417,61 @@ if os.path.exists(static_dir):
         if os.path.exists(path):
             return FileResponse(path, media_type="application/manifest+json")
         raise HTTPException(status_code=404, detail="Manifest not found")
+
+
+UMAMI_ORIGIN = os.environ.get("UMAMI_ORIGIN", "http://umami:3000")
+
+
+@app.get("/umami/script.js", include_in_schema=False)
+def umami_script_proxy():
+    """Proxy Umami tracker through MarathonHub's HTTPS domain.
+
+    Direct IP is HTTP-only and browsers block it as mixed content from the
+    HTTPS MarathonHub page. This keeps tracking first-party:
+    /umami/script.js -> http://umami:3000/script.js
+    """
+    try:
+        with urllib.request.urlopen(f"{UMAMI_ORIGIN}/script.js", timeout=5) as res:
+            body = res.read()
+        return Response(
+            content=body,
+            media_type="application/javascript",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except Exception as exc:
+        logger.warning("Umami script proxy failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Umami tracker unavailable")
+
+
+@app.post("/umami/api/send", include_in_schema=False)
+async def umami_send_proxy(request: Request):
+    """Proxy Umami event collector through MarathonHub domain."""
+    body = await request.body()
+    headers = {
+        "Content-Type": request.headers.get("content-type", "application/json"),
+        "User-Agent": request.headers.get("user-agent", ""),
+        "X-Forwarded-For": request.headers.get("x-forwarded-for", _client_ip(request)),
+        "X-Real-IP": _client_ip(request),
+        "Referer": request.headers.get("referer", ""),
+    }
+    try:
+        req = urllib.request.Request(
+            f"{UMAMI_ORIGIN}/api/send",
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as res:
+            return Response(
+                content=res.read(),
+                status_code=res.status,
+                media_type=res.headers.get("content-type", "application/json"),
+            )
+    except urllib.error.HTTPError as exc:
+        return Response(content=exc.read(), status_code=exc.code)
+    except Exception as exc:
+        logger.warning("Umami send proxy failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Umami collector unavailable")
 
 # Catch-all route for SPA (React Router)
 @app.get("/{full_path:path}")
