@@ -33,6 +33,10 @@ export default function Layout() {
                         </p>
 
                         <div className="flex items-center gap-4">
+                            <Link to="/for-organizers" className="text-sm font-semibold text-slate-400 hover:text-primary transition-colors">
+                                Event Organizer?
+                            </Link>
+                            <span className="text-white/20">|</span>
                             <Link to="/admin/login" className="text-sm font-semibold text-slate-400 hover:text-primary transition-colors">
                                 Admin Portal
                             </Link>
