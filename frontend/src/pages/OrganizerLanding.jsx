@@ -1,8 +1,76 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Camera, TrendingUp, Users, Zap, CheckCircle, ArrowRight, MessageCircle } from 'lucide-react';
+import api from '../api';
 
 export default function OrganizerLanding() {
+    const [settings, setSettings] = useState({
+        whatsapp_number: '60123456789', // fallback
+        organizer_packages: [
+            {
+                name: "Basic Listing",
+                price: "PERCUMA",
+                features: ["Senarai event di MarathonHub", "Link ke semua jurugambar", "Basic SEO indexing"],
+                highlight: false,
+                cta: "Submit Event"
+            },
+            {
+                name: "Premium Coverage",
+                price: "RM 500 / event",
+                features: [
+                    "Semua dalam Basic",
+                    "Featured di halaman utama (7 hari)",
+                    "Artikel blog khas tentang event anda",
+                    "Ruang banner sponsor di page event",
+                    "Priority support"
+                ],
+                highlight: true,
+                cta: "Pilih Pakej Ini"
+            },
+            {
+                name: "Official Media Partner",
+                price: "Custom Quote",
+                features: [
+                    "Semua dalam Premium",
+                    "Exclusive photo aggregation rights",
+                    "Custom landing page untuk event",
+                    "Post-event analytics report",
+                    "Dedicated account manager"
+                ],
+                highlight: false,
+                cta: "Hubungi Kami"
+            }
+        ]
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        api.get('/site-settings')
+            .then(res => {
+                setSettings(prev => ({
+                    ...prev,
+                    ...res.data
+                }));
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error('Failed to load site settings', err);
+                setLoading(false);
+            });
+    }, []);
+
+    const whatsappNumber = settings.whatsapp_number || '60123456789';
+    const packages = settings.organizer_packages || [];
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-5xl mx-auto space-y-24 pb-20">
             {/* Hero Section */}
@@ -42,7 +110,7 @@ export default function OrganizerLanding() {
                     className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
                 >
                     <a
-                        href="https://wa.me/60123456789?text=Hai%20MarathonHub,%20saya%20event%20organizer%20dan%20berminat%20untuk%20collaborate."
+                        href={`https://wa.me/${whatsappNumber}?text=Hai%20MarathonHub,%20saya%20event%20organizer%20dan%20berminat%20untuk%20collaborate.`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="premium-btn py-4 px-8 rounded-xl inline-flex items-center gap-3 text-lg font-bold"
@@ -166,45 +234,7 @@ export default function OrganizerLanding() {
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-6">
-                    {[
-                        {
-                            name: "Basic Listing",
-                            price: "PERCUMA",
-                            features: [
-                                "Senarai event di MarathonHub",
-                                "Link ke semua jurugambar",
-                                "Basic SEO indexing"
-                            ],
-                            highlight: false,
-                            cta: "Submit Event"
-                        },
-                        {
-                            name: "Premium Coverage",
-                            price: "RM 500 / event",
-                            features: [
-                                "Semua dalam Basic",
-                                "Featured di halaman utama (7 hari)",
-                                "Artikel blog khas tentang event anda",
-                                "Ruang banner sponsor di page event",
-                                "Priority support"
-                            ],
-                            highlight: true,
-                            cta: "Pilih Pakej Ini"
-                        },
-                        {
-                            name: "Official Media Partner",
-                            price: "Custom Quote",
-                            features: [
-                                "Semua dalam Premium",
-                                "Exclusive photo aggregation rights",
-                                "Custom landing page untuk event",
-                                "Post-event analytics report",
-                                "Dedicated account manager"
-                            ],
-                            highlight: false,
-                            cta: "Hubungi Kami"
-                        }
-                    ].map((pkg, i) => (
+                    {packages.map((pkg, i) => (
                         <motion.div
                             key={i}
                             initial={{ opacity: 0, y: 20 }}
@@ -224,7 +254,7 @@ export default function OrganizerLanding() {
                             <div className="text-3xl font-black text-white mb-6">{pkg.price}</div>
                             
                             <ul className="space-y-3 mb-8 flex-grow">
-                                {pkg.features.map((feat, j) => (
+                                {pkg.features && pkg.features.map((feat, j) => (
                                     <li key={j} className="flex items-start gap-3 text-sm text-slate-300">
                                         <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                                         <span>{feat}</span>
@@ -233,7 +263,7 @@ export default function OrganizerLanding() {
                             </ul>
 
                             <a
-                                href={`https://wa.me/60123456789?text=Hai,%20saya%20berminat%20dengan%20pakej%20${encodeURIComponent(pkg.name)}`}
+                                href={`https://wa.me/${whatsappNumber}?text=Hai,%20saya%20berminat%20dengan%20pakej%20${encodeURIComponent(pkg.name)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`w-full py-3 rounded-xl font-bold text-center transition-all ${
@@ -258,7 +288,7 @@ export default function OrganizerLanding() {
                     Biarkan kami uruskan bahagian gambar. Anda fokus pada apa yang penting: menjalankan event yang hebat.
                 </p>
                 <a
-                    href="https://wa.me/60123456789?text=Hai%20MarathonHub,%20saya%20event%20organizer%20dan%20berminat%20untuk%20collaborate."
+                    href={`https://wa.me/${whatsappNumber}?text=Hai%20MarathonHub,%20saya%20event%20organizer%20dan%20berminat%20untuk%20collaborate.`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="premium-btn py-4 px-8 rounded-xl inline-flex items-center gap-3 text-lg font-bold"

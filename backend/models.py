@@ -145,6 +145,14 @@ class PageView(Base):
     user_agent = Column(String, nullable=True)
 
 
+class SiteSetting(Base):
+    __tablename__ = "site_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class FaceEmbedding(Base):
     """One row per face detected in a photo.
 

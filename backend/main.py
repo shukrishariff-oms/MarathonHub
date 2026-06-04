@@ -2000,6 +2000,54 @@ def get_blog_post(slug: str):
     return post
 
 
+# ── Site Settings API ────────────────────────────────────────────────────────
+# Key-value store for dynamic site content (no hardcoding).
+@app.get("/api/site-settings", include_in_schema=False)
+def get_site_settings(db: Session = Depends(get_db)):
+    """Return all public site settings as a dictionary."""
+    import json as _json
+    settings = db.query(models.SiteSetting).all()
+    result = {}
+    for s in settings:
+        # Try to parse JSON values, fallback to string
+        try:
+            result[s.key] = _json.loads(s.value)
+        except (_json.JSONDecodeError, TypeError):
+            result[s.key] = s.value
+    return result
+
+
+@app.get("/api/site-settings/{key}", include_in_schema=False)
+def get_site_setting(key: str, db: Session = Depends(get_db)):
+    """Return a single site setting value."""
+    import json as _json
+    setting = db.query(models.SiteSetting).filter(models.SiteSetting.key == key).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    try:
+        return _json.loads(setting.value)
+    except (_json.JSONDecodeError, TypeError):
+        return setting.value
+
+
+@app.put("/api/admin/site-settings/{key}", tags=["admin"])
+def update_site_setting(key: str, value: dict, db: Session = Depends(get_db), current_user: models.Admin = Depends(auth.get_current_user)):
+    """Update or create a site setting (admin only). Value is stored as JSON string."""
+    import json as _json
+    from datetime import datetime as _dt
+    setting = db.query(models.SiteSetting).filter(models.SiteSetting.key == key).first()
+    val_str = _json.dumps(value) if not isinstance(value, str) else value
+    if setting:
+        setting.value = val_str
+        setting.updated_at = _dt.utcnow()
+    else:
+        setting = models.SiteSetting(key=key, value=val_str)
+        db.add(setting)
+    db.commit()
+    db.refresh(setting)
+    return {"key": setting.key, "status": "updated"}
+
+
 @app.get("/blog/rss.xml", include_in_schema=False)
 def blog_rss_feed():
     """RSS 2.0 feed for blog posts — helps Google Discover & feed readers."""
