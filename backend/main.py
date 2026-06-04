@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import models, schemas, crud, auth, database
 import shutil
 import os
@@ -1783,6 +1783,195 @@ def _build_photographer_meta(photographer):
     return title, description, url, image, json_ld, body_extra
 
 
+# -----------------------------------------------------------------------------
+# Blog content — Markdown files with YAML-like frontmatter
+# -----------------------------------------------------------------------------
+def _blog_content_dir():
+    return os.path.join(BASE_DIR, "content", "blog")
+
+
+def _slugify_text(text):
+    import re
+    base = (text or "post").lower()
+    base = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+    return base[:90].strip("-") or "post"
+
+
+def _parse_frontmatter(raw: str) -> tuple[Dict[str, Any], str]:
+    """Tiny YAML-like frontmatter parser for simple key/value/list fields."""
+    meta: Dict[str, Any] = {}
+    body = raw
+    if raw.startswith("---\n"):
+        end = raw.find("\n---\n", 4)
+        if end != -1:
+            fm = raw[4:end]
+            body = raw[end + 5:]
+            for line in fm.splitlines():
+                if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+                    continue
+                key, val = line.split(":", 1)
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                if val.startswith("[") and val.endswith("]"):
+                    val = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
+                meta[key] = val
+    return meta, body.strip()
+
+
+def _markdown_to_html(md: str) -> str:
+    """Small safe-enough Markdown renderer for first-party blog posts."""
+    import re
+    lines = md.splitlines()
+    html = []
+    in_ul = False
+    in_ol = False
+    para = []
+
+    def inline(text: str) -> str:
+        text = _esc(text)
+        text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
+        text = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", text)
+        text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+        text = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+|/[^\s)]+)\)", r'<a href="\2">\1</a>', text)
+        return text
+
+    def flush_para():
+        nonlocal para
+        if para:
+            html.append("<p>" + inline(" ".join(para).strip()) + "</p>")
+            para = []
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            flush_para()
+            if in_ul:
+                html.append("</ul>"); in_ul = False
+            if in_ol:
+                html.append("</ol>"); in_ol = False
+            continue
+        if stripped.startswith("### "):
+            flush_para();
+            if in_ul: html.append("</ul>"); in_ul=False
+            if in_ol: html.append("</ol>"); in_ol=False
+            html.append(f"<h3>{inline(stripped[4:])}</h3>")
+        elif stripped.startswith("## "):
+            flush_para();
+            if in_ul: html.append("</ul>"); in_ul=False
+            if in_ol: html.append("</ol>"); in_ol=False
+            html.append(f"<h2>{inline(stripped[3:])}</h2>")
+        elif stripped.startswith("# "):
+            flush_para();
+            if in_ul: html.append("</ul>"); in_ul=False
+            if in_ol: html.append("</ol>"); in_ol=False
+            html.append(f"<h1>{inline(stripped[2:])}</h1>")
+        elif stripped.startswith("- "):
+            flush_para()
+            if in_ol: html.append("</ol>"); in_ol=False
+            if not in_ul: html.append("<ul>"); in_ul=True
+            html.append(f"<li>{inline(stripped[2:])}</li>")
+        elif re.match(r"^\d+\.\s+", stripped):
+            flush_para()
+            if in_ul: html.append("</ul>"); in_ul=False
+            if not in_ol: html.append("<ol>"); in_ol=True
+            item_text = re.sub(r"^\d+\.\s+", "", stripped)
+            html.append(f"<li>{inline(item_text)}</li>")
+        else:
+            para.append(stripped)
+    flush_para()
+    if in_ul: html.append("</ul>")
+    if in_ol: html.append("</ol>")
+    return "\n".join(html)
+
+
+def _read_blog_posts(include_body: bool = False):
+    import glob
+    posts = []
+    for path in glob.glob(os.path.join(_blog_content_dir(), "*.md")):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = f.read()
+            meta, body_md = _parse_frontmatter(raw)
+            slug = meta.get("slug") or _slugify_text(meta.get("title") or os.path.splitext(os.path.basename(path))[0])
+            title = meta.get("title") or slug.replace("-", " ").title()
+            excerpt = meta.get("excerpt") or (body_md[:180].replace("\n", " ") + "...")
+            tags = meta.get("tags") or []
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split(",") if t.strip()]
+            post = {
+                "slug": slug,
+                "title": title,
+                "excerpt": excerpt,
+                "date": meta.get("date") or "",
+                "author": meta.get("author") or "MarathonHub Editorial",
+                "reading_time": meta.get("reading_time") or "4 min read",
+                "tags": tags,
+                "canonical_url": f"{SITE_URL}/blog/{slug}",
+            }
+            if include_body:
+                post["content"] = _markdown_to_html(body_md)
+                post["content_markdown"] = body_md
+                post["description"] = meta.get("description") or excerpt
+            posts.append(post)
+        except Exception as exc:
+            logger.warning("Skipping blog post %s: %s", path, exc)
+    posts.sort(key=lambda p: p.get("date") or "", reverse=True)
+    return posts
+
+
+def _get_blog_post(slug: str):
+    for post in _read_blog_posts(include_body=True):
+        if post.get("slug") == slug:
+            return post
+    return None
+
+
+def _build_blog_meta(post):
+    title = f"{post['title']} | MarathonHub Blog"
+    description = post.get("description") or post.get("excerpt") or "Running event photography guide by MarathonHub Malaysia."
+    url = post.get("canonical_url") or f"{SITE_URL}/blog/{post['slug']}"
+    image = f"{SITE_URL}/og-image.jpg"
+    json_ld = [
+        {
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": post.get("title"),
+            "description": description,
+            "url": url,
+            "datePublished": post.get("date"),
+            "author": {"@type": "Organization", "name": post.get("author") or "MarathonHub"},
+            "publisher": {"@type": "Organization", "name": "MarathonHub", "url": SITE_URL},
+            "mainEntityOfPage": url,
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL},
+                {"@type": "ListItem", "position": 2, "name": "Blog", "item": f"{SITE_URL}/blog"},
+                {"@type": "ListItem", "position": 3, "name": post.get("title"), "item": url},
+            ],
+        },
+    ]
+    body_extra = f"<h1>{_esc(post.get('title'))}</h1>\n<p>{_esc(description)}</p>\n{post.get('content', '')}"
+    return title, description, url, image, json_ld, body_extra
+
+
+@app.get("/api/blog")
+def list_blog_posts():
+    """Public blog index for SEO articles/guides."""
+    return _read_blog_posts(include_body=False)
+
+
+@app.get("/api/blog/{slug}")
+def get_blog_post(slug: str):
+    post = _get_blog_post(slug)
+    if not post:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return post
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     # Note: production traffic for marathonhub.ohmaishoot.com sits behind
@@ -1902,7 +2091,7 @@ def sitemap_xml(db: Session = Depends(get_db)):
     urls = []
 
     # Static pages
-    static_pages = [("/", "1.0", "daily"), ("/events", "0.9", "daily"), ("/photographers", "0.8", "weekly")]
+    static_pages = [("/", "1.0", "daily"), ("/events", "0.9", "daily"), ("/photographers", "0.8", "weekly"), ("/blog", "0.7", "weekly")]
     for path, priority, freq in static_pages:
         urls.append(f"  <url><loc>{SITE_URL}{path}</loc><changefreq>{freq}</changefreq><priority>{priority}</priority></url>")
 
@@ -1974,6 +2163,17 @@ def sitemap_xml(db: Session = Depends(get_db)):
                 )
             except Exception:
                 continue
+    except Exception:
+        pass
+
+    # Blog posts
+    try:
+        for post in _read_blog_posts(include_body=False):
+            lastmod = f"<lastmod>{post['date']}</lastmod>" if post.get("date") else ""
+            urls.append(
+                f"  <url><loc>{SITE_URL}/blog/{post['slug']}</loc>{lastmod}"
+                f"<changefreq>monthly</changefreq><priority>0.7</priority></url>"
+            )
     except Exception:
         pass
 
@@ -2537,6 +2737,14 @@ async def serve_frontend(full_path: str, db: Session = Depends(get_db)):
                 photographer = crud.get_photographer(db, photographer_id=photographer_id)
                 if photographer:
                     meta = _build_photographer_meta(photographer)
+            except (ValueError, IndexError):
+                pass
+        elif full_path.startswith("blog/"):
+            try:
+                slug = full_path.split("/")[1]
+                post = _get_blog_post(slug)
+                if post:
+                    meta = _build_blog_meta(post)
             except (ValueError, IndexError):
                 pass
 

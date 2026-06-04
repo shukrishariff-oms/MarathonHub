@@ -10,6 +10,8 @@ import EventList from './pages/EventList';
 import EventDetail from './pages/EventDetail';
 import PhotographerList from './pages/PhotographerList';
 import PhotographerDetail from './pages/PhotographerDetail';
+import BlogList from './pages/BlogList';
+import BlogDetail from './pages/BlogDetail';
 
 // Admin pages — code-split into a separate chunk. Public visitors
 // (the vast majority) never download admin code, cutting initial JS
@@ -64,6 +66,8 @@ function App() {
                     <Route path="events/:slug" element={<EventDetail />} />
                     <Route path="photographers" element={<PhotographerList />} />
                     <Route path="photographers/:id" element={<PhotographerDetail />} />
+                    <Route path="blog" element={<BlogList />} />
+                    <Route path="blog/:slug" element={<BlogDetail />} />
                 </Route>
 
                 {/* Admin Routes */}
