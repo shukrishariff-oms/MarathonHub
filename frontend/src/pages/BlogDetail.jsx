@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Clock, User, Calendar } from 'lucide-react';
 import api from '../api';
 
 export default function BlogDetail() {
@@ -46,7 +46,7 @@ export default function BlogDetail() {
     }
 
     return (
-        <motion.article 
+        <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-3xl mx-auto pb-20"
@@ -56,25 +56,57 @@ export default function BlogDetail() {
                 Kembali ke Blog
             </Link>
 
-            <header className="space-y-6 mb-12">
-                <div className="flex flex-wrap items-center gap-4 text-sm text-primary font-bold">
-                    <span>{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    <span>•</span>
-                    <span>{post.reading_time}</span>
+            <header className="mb-10">
+                {/* Meta row */}
+                <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-slate-400 mb-5">
+                    <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        {new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                    <span className="w-px h-4 bg-white/10" />
+                    <span className="inline-flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-primary" />
+                        {post.reading_time}
+                    </span>
+                    <span className="w-px h-4 bg-white/10" />
+                    <span className="inline-flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-primary" />
+                        {post.author}
+                    </span>
                 </div>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-black text-white tracking-tighter leading-tight">
+
+                {/* Title */}
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white tracking-tighter leading-tight">
                     {post.title}
                 </h1>
-                <div className="flex items-center gap-4 text-slate-400 font-medium pt-4">
-                    <span>Oleh <strong className="text-white">{post.author}</strong></span>
+
+                {/* Excerpt / description */}
+                {post.description && (
+                    <p className="mt-5 text-lg text-slate-300 leading-relaxed border-l-2 border-primary/40 pl-4">
+                        {post.description}
+                    </p>
+                )}
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 mt-6">
+                    {post.tags && post.tags.map(tag => (
+                        <span key={tag} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-xs font-bold text-slate-300">
+                            #{tag}
+                        </span>
+                    ))}
                 </div>
             </header>
 
-            <div 
-                className="prose prose-invert prose-lg max-w-none prose-headings:font-display prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-white prose-a:transition-colors prose-img:rounded-2xl"
+            {/* Divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-10" />
+
+            {/* Article body */}
+            <div
+                className="blog-content"
                 dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
+            {/* Footer */}
             <footer className="mt-16 pt-8 border-t border-white/10">
                 <div className="flex flex-wrap gap-2">
                     {post.tags && post.tags.map(tag => (

@@ -1819,7 +1819,12 @@ def _parse_frontmatter(raw: str) -> tuple[Dict[str, Any], str]:
 
 
 def _markdown_to_html(md: str) -> str:
-    """Small safe-enough Markdown renderer for first-party blog posts."""
+    """Small safe-enough Markdown renderer for first-party blog posts.
+
+    Recognises inline label markers like ``Kelebihan:``, ``Kekurangan:``,
+    ``Contoh:``, ``Tip:`` etc. and wraps them in <span class="blog-label ...">
+    so the frontend can style them as coloured badges above their list.
+    """
     import re
     lines = md.splitlines()
     html = []
@@ -1827,12 +1832,19 @@ def _markdown_to_html(md: str) -> str:
     in_ol = False
     para = []
 
+    # Patterns that get turned into styled label badges before a list
+    _label_re = re.compile(
+        r"^(Kelebihan|Kekurangan|Contoh|Tip|Nota|Ringkasan|Cadangan|"
+        r"Kelebihan|Kekurangan|Pros|Cons|Summary|Example|Note|Warning):?\s*$",
+        re.IGNORECASE,
+    )
+
     def inline(text: str) -> str:
         text = _esc(text)
         text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
         text = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", text)
         text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-        text = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+|/[^\s)]+)\)", r'<a href="\2">\1</a>', text)
+        text = re.sub(r"\[([^\]]+)\]\((https?://[^\\s)]+|/[^\\s)]+)\)", r'<a href="\\2">\\1</a>', text)
         return text
 
     def flush_para():
@@ -1841,47 +1853,63 @@ def _markdown_to_html(md: str) -> str:
             html.append("<p>" + inline(" ".join(para).strip()) + "</p>")
             para = []
 
+    def close_lists():
+        nonlocal in_ul, in_ol
+        if in_ul:
+            html.append("</ul>"); in_ul = False
+        if in_ol:
+            html.append("</ol>"); in_ol = False
+
     for raw_line in lines:
         line = raw_line.rstrip()
         stripped = line.strip()
         if not stripped:
             flush_para()
-            if in_ul:
-                html.append("</ul>"); in_ul = False
-            if in_ol:
-                html.append("</ol>"); in_ol = False
+            close_lists()
             continue
         if stripped.startswith("### "):
-            flush_para();
-            if in_ul: html.append("</ul>"); in_ul=False
-            if in_ol: html.append("</ol>"); in_ol=False
+            flush_para(); close_lists()
             html.append(f"<h3>{inline(stripped[4:])}</h3>")
         elif stripped.startswith("## "):
-            flush_para();
-            if in_ul: html.append("</ul>"); in_ul=False
-            if in_ol: html.append("</ol>"); in_ol=False
+            flush_para(); close_lists()
             html.append(f"<h2>{inline(stripped[3:])}</h2>")
         elif stripped.startswith("# "):
-            flush_para();
-            if in_ul: html.append("</ul>"); in_ul=False
-            if in_ol: html.append("</ol>"); in_ol=False
+            flush_para(); close_lists()
             html.append(f"<h1>{inline(stripped[2:])}</h1>")
         elif stripped.startswith("- "):
             flush_para()
-            if in_ol: html.append("</ol>"); in_ol=False
-            if not in_ul: html.append("<ul>"); in_ul=True
+            if in_ol: html.append("</ol>"); in_ol = False
+            if not in_ul: html.append("<ul>"); in_ul = True
             html.append(f"<li>{inline(stripped[2:])}</li>")
         elif re.match(r"^\d+\.\s+", stripped):
             flush_para()
-            if in_ul: html.append("</ul>"); in_ul=False
-            if not in_ol: html.append("<ol>"); in_ol=True
+            if in_ul: html.append("</ul>"); in_ul = False
+            if not in_ol: html.append("<ol>"); in_ol = True
             item_text = re.sub(r"^\d+\.\s+", "", stripped)
             html.append(f"<li>{inline(item_text)}</li>")
         else:
-            para.append(stripped)
+            # Check if this line is a label like "Kelebihan:" or "Kekurangan:"
+            m = _label_re.match(stripped)
+            if m:
+                flush_para(); close_lists()
+                label_text = m.group(1).strip()
+                # Determine colour class based on keyword
+                kw = label_text.lower()
+                if kw in ("kelebihan", "pros", "tip", "cadangan", "contoh", "example"):
+                    cls = "blog-label-green"
+                elif kw in ("kekurangan", "cons", "nota", "note", "warning"):
+                    cls = "blog-label-amber"
+                elif kw in ("ringkasan", "summary"):
+                    cls = "blog-label-blue"
+                else:
+                    cls = "blog-label-default"
+                html.append(
+                    f'<p class="blog-label {cls}">{inline(label_text)}</p>'
+                )
+            else:
+                para.append(stripped)
     flush_para()
-    if in_ul: html.append("</ul>")
-    if in_ol: html.append("</ol>")
+    close_lists()
     return "\n".join(html)
 
 

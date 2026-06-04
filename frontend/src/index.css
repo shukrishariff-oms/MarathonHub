@@ -66,6 +66,67 @@
   }
 }
 
+/* ===== Blog Content Styling ===== */
+.blog-content {
+  @apply text-slate-200 leading-relaxed;
+}
+.blog-content h1 {
+  @apply text-2xl md:text-3xl font-display font-black text-white tracking-tight mt-10 mb-4;
+}
+.blog-content h2 {
+  @apply text-xl md:text-2xl font-display font-black text-white tracking-tight mt-10 mb-4 pb-2 border-b border-white/5;
+}
+.blog-content h3 {
+  @apply text-lg font-display font-bold text-white tracking-tight mt-8 mb-3;
+}
+.blog-content p {
+  @apply mb-4 leading-relaxed;
+}
+.blog-content strong {
+  @apply text-white font-bold;
+}
+.blog-content em {
+  @apply text-slate-300;
+}
+.blog-content ul {
+  @apply mb-4 pl-0 space-y-2;
+}
+.blog-content ol {
+  @apply mb-4 pl-6 space-y-2 list-decimal;
+}
+.blog-content li {
+  @apply text-slate-200 leading-relaxed pl-1;
+}
+.blog-content li::marker {
+  @apply text-primary/60;
+}
+.blog-content a {
+  @apply text-primary font-semibold hover:text-white transition-colors underline decoration-primary/30 hover:decoration-white/30 underline-offset-2;
+}
+.blog-content code {
+  @apply px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-sm text-primary font-mono;
+}
+.blog-content img {
+  @apply rounded-2xl my-6;
+}
+
+/* Blog labels: "Kelebihan:", "Kekurangan:", "Ringkasan:" etc */
+.blog-label {
+  @apply font-display font-black text-sm uppercase tracking-widest mt-6 mb-2 pb-1 border-b border-white/5;
+}
+.blog-label-green {
+  @apply text-emerald-400 border-emerald-400/20;
+}
+.blog-label-amber {
+  @apply text-amber-400 border-amber-400/20;
+}
+.blog-label-blue {
+  @apply text-sky-400 border-sky-400/20;
+}
+.blog-label-default {
+  @apply text-slate-300;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

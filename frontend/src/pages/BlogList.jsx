@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ArrowRight, Clock, Calendar, BookOpen } from 'lucide-react';
 import api from '../api';
 
 export default function BlogList() {
@@ -29,7 +30,16 @@ export default function BlogList() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-12">
+            {/* Header */}
             <header className="space-y-4 text-center">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-sm font-bold text-primary mb-2"
+                >
+                    <BookOpen className="w-4 h-4" />
+                    MarathonHub Blog
+                </motion.div>
                 <motion.h1
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -47,41 +57,79 @@ export default function BlogList() {
                 </motion.p>
             </header>
 
-            <div className="grid gap-8">
-                {posts.map((post, i) => (
-                    <motion.article
-                        key={post.slug}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="glass-card p-6 md:p-8 rounded-2xl group border border-white/5 hover:border-primary/30 transition-all duration-300"
-                    >
-                        <Link to={`/blog/${post.slug}`} className="block space-y-4">
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400 font-semibold mb-2">
-                                <span>{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                                <span>•</span>
-                                <span>{post.reading_time}</span>
-                            </div>
-                            <h2 className="text-2xl md:text-3xl font-display font-black text-white tracking-tight group-hover:text-primary transition-colors">
-                                {post.title}
-                            </h2>
-                            <p className="text-slate-300 leading-relaxed">
-                                {post.excerpt}
-                            </p>
-                            <div className="flex flex-wrap gap-2 pt-4">
-                                {post.tags && post.tags.map(tag => (
-                                    <span key={tag} className="px-3 py-1 bg-white/5 rounded-lg text-xs font-semibold text-slate-300">
-                                        #{tag}
+            {/* Posts grid */}
+            <div className="space-y-6">
+                {posts.map((post, i) => {
+                    const isFeatured = i === 0;
+                    return (
+                        <motion.article
+                            key={post.slug}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.08 }}
+                            className={`group relative rounded-2xl border transition-all duration-300 ${
+                                isFeatured
+                                    ? 'bg-gradient-to-br from-primary/5 to-pink-500/5 border-primary/20 hover:border-primary/40 p-8 md:p-10'
+                                    : 'glass-card p-6 md:p-8 hover:border-primary/30'
+                            }`}
+                        >
+                            <Link to={`/blog/${post.slug}`} className="block space-y-4">
+                                {/* Meta */}
+                                <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-400">
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5 text-primary/70" />
+                                        {new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                                     </span>
-                                ))}
-                            </div>
-                        </Link>
-                    </motion.article>
-                ))}
-                
+                                    <span className="w-px h-3.5 bg-white/10" />
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-primary/70" />
+                                        {post.reading_time}
+                                    </span>
+                                    {isFeatured && (
+                                        <>
+                                            <span className="w-px h-3.5 bg-white/10" />
+                                            <span className="px-2 py-0.5 bg-primary/15 text-primary text-xs font-bold rounded-md uppercase tracking-wider">
+                                                Terkini
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Title */}
+                                <h2 className={`font-display font-black text-white tracking-tight group-hover:text-primary transition-colors leading-tight ${
+                                    isFeatured ? 'text-2xl md:text-3xl lg:text-4xl' : 'text-xl md:text-2xl'
+                                }`}>
+                                    {post.title}
+                                </h2>
+
+                                {/* Excerpt */}
+                                <p className={`text-slate-300 leading-relaxed ${isFeatured ? 'text-lg' : ''}`}>
+                                    {post.excerpt}
+                                </p>
+
+                                {/* Tags + CTA */}
+                                <div className="flex items-center justify-between pt-2">
+                                    <div className="flex flex-wrap gap-2">
+                                        {post.tags && post.tags.slice(0, isFeatured ? 4 : 3).map(tag => (
+                                            <span key={tag} className="px-3 py-1 bg-white/5 rounded-lg text-xs font-semibold text-slate-300">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <span className="inline-flex items-center gap-1 text-sm font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Baca <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </span>
+                                </div>
+                            </Link>
+                        </motion.article>
+                    );
+                })}
+
                 {posts.length === 0 && (
                     <div className="text-center text-slate-400 py-12 glass-card rounded-2xl">
-                        <p>Tiada artikel buat masa ini. Nantikan kemaskini terbaru kami.</p>
+                        <BookOpen className="w-12 h-12 mx-auto mb-4 text-slate-500" />
+                        <p className="text-lg">Tiada artikel buat masa ini.</p>
+                        <p className="text-sm text-slate-500 mt-1">Nantikan kemaskini terbaru kami.</p>
                     </div>
                 )}
             </div>
