@@ -74,7 +74,8 @@ export default function Home() {
         const thisWeek = [];
         const later = [];
         for (const ev of upcomingEvents) {
-            const d = ev.date ? new Date(ev.date) : null;
+            // Use UTC interpretation (append 'Z') to match EventCard
+            const d = ev.date ? new Date(ev.date.endsWith('Z') ? ev.date : ev.date + 'Z') : null;
             if (d && d <= cutoff) thisWeek.push(ev);
             else later.push(ev);
         }
@@ -84,11 +85,17 @@ export default function Home() {
     // Friendly countdown label — "Esok", "3 hari lagi", "Hari ini"
     const daysFromNow = (dateStr) => {
         if (!dateStr) return null;
-        const target = new Date(dateStr);
+        // Must match EventCard's UTC interpretation (append 'Z')
+        const target = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        target.setHours(0, 0, 0, 0);
-        const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        // Convert both to MYT date strings for comparison (YYYY-MM-DD)
+        const toMYTDate = (d) => {
+            const myt = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+            return new Date(myt.getFullYear(), myt.getMonth(), myt.getDate());
+        };
+        const targetMYT = toMYTDate(target);
+        const todayMYT = toMYTDate(today);
+        const diff = Math.round((targetMYT - todayMYT) / (1000 * 60 * 60 * 24));
         if (diff <= 0) return 'Hari ini';
         if (diff === 1) return 'Esok';
         return `${diff} hari lagi`;

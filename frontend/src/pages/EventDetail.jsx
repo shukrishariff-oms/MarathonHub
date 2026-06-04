@@ -280,7 +280,7 @@ export default function EventDetail() {
                             <a
                                 href={(() => {
                                     if (!event.date) return '#';
-                                    const start = new Date(event.date);
+                                    const start = new Date(event.date.endsWith('Z') ? event.date : event.date + 'Z');
                                     const end = new Date(start.getTime() + 6 * 60 * 60 * 1000);
                                     const fmt = (d) => d.toISOString().replace(/[-:]|\.\d{3}/g, '');
                                     const params = new URLSearchParams({
