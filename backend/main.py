@@ -2585,7 +2585,7 @@ def share_text_event(event_id: int, db: Session = Depends(get_db)):
                 continue
 
     lines.append("")
-    lines.append(f"{SITE_URL}/events/{event_id}")
+    lines.append(f"{SITE_URL}/events/{event.slug or event_id}")
     return {"text": "\n".join(lines)}
 
 
