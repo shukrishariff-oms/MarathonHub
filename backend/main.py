@@ -5,7 +5,6 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Red
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import models, schemas, crud, auth, database
-import submissions as submissions_routes
 import shutil
 import os
 import uuid
@@ -297,11 +296,6 @@ def check_and_migrate_db():
 check_and_migrate_db()
 
 app = FastAPI(title="MarathonHub API", version="0.1.0")
-
-# Mount viral-loop routes (submissions / ranking / promo codes).
-# Defined in submissions.py — auto-create_all() at top of this file
-# picks up the new tables (runners, submissions, promo_codes) on startup.
-app.include_router(submissions_routes.router)
 
 # Rate limiter — applied per-route via @limiter.limit(...)
 app.state.limiter = limiter
@@ -620,7 +614,7 @@ def read_events(
         today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
         tomorrow_start = today_start + timedelta(days=1)
         if status == 'Upcoming':
-            query = query.filter(models.Event.date >= today_start)
+            query = query.filter(models.Event.date >= tomorrow_start)
         elif status == 'Recent':
             query = query.filter(
                 models.Event.date >= today_start,
@@ -668,7 +662,7 @@ def race_calendar_stats(db: Session = Depends(get_db)):
     """Hero-banner stats for the race calendar page.
 
     Returns 4 numbers used by the calendar landing:
-      - upcoming: races with date >= today
+      - upcoming: races with date >= tomorrow
       - photographers: visible photographers
       - past: races with date < today (for "X recap pages indexed")
       - photos: sum of gallery_photo_count across all assignments
@@ -681,7 +675,7 @@ def race_calendar_stats(db: Session = Depends(get_db)):
 
     upcoming = (
         db.query(func.count(models.Event.id))
-        .filter(models.Event.date >= today_start)
+        .filter(models.Event.date >= tomorrow_start)
         .scalar()
     ) or 0
     past = (
@@ -2005,129 +1999,6 @@ def get_blog_post(slug: str):
         raise HTTPException(status_code=404, detail="Blog post not found")
     return post
 
-
-
-# ── Admin Blog CRUD ──────────────────────────────────────────────────────────
-from pydantic import BaseModel as _BaseModel
-from typing import Optional as _Optional
-from datetime import datetime as _dt
-
-class BlogPostCreate(_BaseModel):
-    title: str
-    slug: _Optional[str] = None
-    date: str = ""
-    author: str = "MarathonHub Editorial"
-    reading_time: str = "4 min read"
-    excerpt: str = ""
-    description: str = ""
-    tags: list[str] = []
-    content: str  # raw markdown body
-
-class BlogPostUpdate(_BaseModel):
-    title: _Optional[str] = None
-    slug: _Optional[str] = None
-    date: _Optional[str] = None
-    author: _Optional[str] = None
-    reading_time: _Optional[str] = None
-    excerpt: _Optional[str] = None
-    description: _Optional[str] = None
-    tags: _Optional[list[str]] = None
-    content: _Optional[str] = None
-
-def _write_blog_file(slug: str, meta: dict, body: str):
-    """Write a blog post as a frontmatter+markdown file."""
-    tags_str = ", ".join(f'\"{t}\"' for t in meta.get("tags", []))
-    fm_lines = [
-        "---",
-        f'title: \"{meta.get("title", "")}\"',
-        f'slug: \"{slug}\"',
-        f'date: \"{meta.get("date", "")}\"',
-        f'author: \"{meta.get("author", "MarathonHub Editorial")}\"',
-        f'reading_time: \"{meta.get("reading_time", "4 min read")}\"',
-        f'excerpt: \"{meta.get("excerpt", "")}\"',
-        f'description: \"{meta.get("description", "")}\"',
-        f'tags: [{tags_str}]',
-        "---",
-    ]
-    content = "\n".join(fm_lines) + "\n\n" + body + "\n"
-    filepath = os.path.join(_blog_content_dir(), f"{slug}.md")
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-    return filepath
-
-def _delete_blog_file(slug: str):
-    """Delete a blog post markdown file."""
-    filepath = os.path.join(_blog_content_dir(), f"{slug}.md")
-    if os.path.exists(filepath):
-        os.remove(filepath)
-        return True
-    return False
-
-@app.get("/api/admin/blog", tags=["admin"])
-def admin_list_blog_posts(current_user: models.Admin = Depends(auth.get_current_user)):
-    """List all blog posts including raw markdown for admin."""
-    return _read_blog_posts(include_body=True)
-
-@app.get("/api/admin/blog/{slug}", tags=["admin"])
-def admin_get_blog_post(slug: str, current_user: models.Admin = Depends(auth.get_current_user)):
-    """Get a single blog post with raw markdown for editing."""
-    post = _get_blog_post(slug)
-    if not post:
-        raise HTTPException(status_code=404, detail="Blog post not found")
-    return post
-
-@app.post("/api/admin/blog", tags=["admin"])
-def admin_create_blog_post(data: BlogPostCreate, current_user: models.Admin = Depends(auth.get_current_user)):
-    """Create a new blog post."""
-    slug = data.slug or _slugify_text(data.title)
-    # Check if slug already exists
-    if _get_blog_post(slug):
-        raise HTTPException(status_code=409, detail=f"Blog post with slug '{slug}' already exists")
-    meta = {
-        "title": data.title,
-        "slug": slug,
-        "date": data.date or _dt.utcnow().strftime("%Y-%m-%d"),
-        "author": data.author,
-        "reading_time": data.reading_time,
-        "excerpt": data.excerpt,
-        "description": data.description,
-        "tags": data.tags,
-    }
-    _write_blog_file(slug, meta, data.content)
-    return {"ok": True, "slug": slug, "message": "Blog post created"}
-
-@app.put("/api/admin/blog/{slug}", tags=["admin"])
-def admin_update_blog_post(slug: str, data: BlogPostUpdate, current_user: models.Admin = Depends(auth.get_current_user)):
-    """Update an existing blog post."""
-    existing = _get_blog_post(slug)
-    if not existing:
-        raise HTTPException(status_code=404, detail="Blog post not found")
-    # Merge updates
-    meta = {
-        "title": data.title if data.title is not None else existing.get("title", ""),
-        "slug": slug,
-        "date": data.date if data.date is not None else existing.get("date", ""),
-        "author": data.author if data.author is not None else existing.get("author", "MarathonHub Editorial"),
-        "reading_time": data.reading_time if data.reading_time is not None else existing.get("reading_time", "4 min read"),
-        "excerpt": data.excerpt if data.excerpt is not None else existing.get("excerpt", ""),
-        "description": data.description if data.description is not None else existing.get("description", ""),
-        "tags": data.tags if data.tags is not None else existing.get("tags", []),
-    }
-    body = data.content if data.content is not None else existing.get("content_markdown", "")
-    new_slug = data.slug if data.slug and data.slug != slug else slug
-    # If slug changed, delete old file
-    if new_slug != slug:
-        _delete_blog_file(slug)
-    _write_blog_file(new_slug, meta, body)
-    return {"ok": True, "slug": new_slug, "message": "Blog post updated"}
-
-@app.delete("/api/admin/blog/{slug}", tags=["admin"])
-def admin_delete_blog_post(slug: str, current_user: models.Admin = Depends(auth.get_current_user)):
-    """Delete a blog post."""
-    if not _delete_blog_file(slug):
-        raise HTTPException(status_code=404, detail="Blog post not found")
-    return {"ok": True, "slug": slug, "message": "Blog post deleted"}
 
 # ── Site Settings API ────────────────────────────────────────────────────────
 # Key-value store for dynamic site content (no hardcoding).
