@@ -136,6 +136,16 @@ export default function EventDetail() {
                     setAssignments(sortedAssignments);
                 }
                 setLoading(false);
+                // Track page view with correct event_id — complements
+                // usePageTracking hook which can't extract ID from slugs.
+                if (data?.id) {
+                    api.post('/track', {
+                        path: window.location.pathname,
+                        entity_type: 'event',
+                        entity_id: data.id,
+                        event_id: data.id
+                    }).catch(() => {});
+                }
                 // Fire-and-forget: load related events for SEO internal links.
                 if (data?.id) {
                     api.get(`/events/${data.id}/related`)
