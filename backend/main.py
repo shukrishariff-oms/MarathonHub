@@ -614,7 +614,7 @@ def read_events(
         today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
         tomorrow_start = today_start + timedelta(days=1)
         if status == 'Upcoming':
-            query = query.filter(models.Event.date >= tomorrow_start)
+            query = query.filter(models.Event.date >= today_start)
         elif status == 'Recent':
             query = query.filter(
                 models.Event.date >= today_start,
@@ -662,7 +662,7 @@ def race_calendar_stats(db: Session = Depends(get_db)):
     """Hero-banner stats for the race calendar page.
 
     Returns 4 numbers used by the calendar landing:
-      - upcoming: races with date >= tomorrow
+      - upcoming: races with date >= today
       - photographers: visible photographers
       - past: races with date < today (for "X recap pages indexed")
       - photos: sum of gallery_photo_count across all assignments
@@ -675,7 +675,7 @@ def race_calendar_stats(db: Session = Depends(get_db)):
 
     upcoming = (
         db.query(func.count(models.Event.id))
-        .filter(models.Event.date >= tomorrow_start)
+        .filter(models.Event.date >= today_start)
         .scalar()
     ) or 0
     past = (
