@@ -66,11 +66,19 @@ export default function Home() {
             .catch(err => console.error(err));
     }, []);
 
-    // Auto-curated "This Week's Races" — events with date in the next
-    // 7 days. No admin work needed; updates itself daily.
+    // Auto-curated "This Week's Races" — Monday-to-Sunday calendar week.
+    // Events show up from Monday of their week, not before.
+    // Saturday Jun 20: shows Mon 15 – Sun 21. KL 10K (Jun 26) = next week → hidden.
+    // Monday Jun 22: week extends to Sun 28 → KL 10K appears.
     const { thisWeekEvents, laterUpcoming } = useMemo(() => {
         const now = new Date();
-        const cutoff = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        // Sunday 23:59:59.999 of the current week
+        const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+        const sundayEnd = new Date(now);
+        sundayEnd.setDate(now.getDate() + daysUntilSunday);
+        sundayEnd.setHours(23, 59, 59, 999);
+        const cutoff = sundayEnd;
         const thisWeek = [];
         const later = [];
         for (const ev of upcomingEvents) {
