@@ -187,19 +187,19 @@ export default function EventDetail() {
     });
 
     return (
-        <div className="space-y-16 pb-20">
+        <div className="space-y-10 pb-16">
             {/* Premium Header/Hero */}
             <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative overflow-hidden rounded-[2.5rem] bg-ohmai-charcoal border border-white/5 text-white"
+                className="relative overflow-hidden rounded-[2rem] bg-ohmai-charcoal border border-white/5 text-white"
             >
                 <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
                 <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.03)_0%,transparent_70%)] pointer-events-none" />
 
-                <div className="relative z-10 p-8 md:p-16 flex flex-col md:flex-row gap-12 items-end justify-between">
-                    <div className="space-y-6 max-w-2xl">
+                <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row gap-8 items-end justify-between">
+                    <div className="space-y-4 max-w-2xl">
                         <div className="flex flex-wrap gap-3">
                             <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border ${event.status === 'Upcoming'
                                 ? 'bg-primary/10 border-primary/20 text-primary'
@@ -212,7 +212,7 @@ export default function EventDetail() {
                             </span>
                         </div>
 
-                        <h1 className="text-4xl md:text-7xl font-display font-black tracking-tighter leading-[0.9] uppercase italic pr-4">
+                        <h1 className="text-3xl md:text-5xl font-display font-black tracking-tighter leading-[0.9] uppercase italic pr-4">
                             {event.name}
                         </h1>
 
@@ -228,7 +228,7 @@ export default function EventDetail() {
                         </div>
 
                         {/* Share Buttons */}
-                        <div className="pt-6 flex flex-wrap gap-3">
+                        <div className="pt-3 flex flex-wrap gap-3">
                             <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Share2 className="w-4 h-4" />
                                 Share Event:
@@ -321,7 +321,7 @@ export default function EventDetail() {
                         </div>
                     </div>
 
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl w-full md:w-auto min-w-[280px]">
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-3xl w-full md:w-auto min-w-[280px]">
                         <div className="flex items-center gap-2 mb-6 text-primary">
                             <Timer className="w-5 h-5" />
                             <span className="text-xs font-black uppercase tracking-widest">Race Distances</span>
