@@ -13,6 +13,7 @@
  */
 import { motion } from 'framer-motion';
 import { Camera, ExternalLink, ScanFace } from 'lucide-react';
+import { safeParse } from '../utils/safeJson';
 import api from '../api';
 
 export default function PhotographerDirectory({ event, assignments }) {
@@ -93,7 +94,22 @@ export default function PhotographerDirectory({ event, assignments }) {
                                     <p className="text-white font-black text-sm uppercase italic truncate">
                                         {a.photographer.name}
                                     </p>
-                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest truncate">
+                                    {(() => {
+                                        const coverage = safeParse(a.km_coverage_json);
+                                        if (coverage.length > 0) {
+                                            return (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {coverage.map((loc, i) => (
+                                                        <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/15 text-primary-300 border border-primary/20">
+                                                            {loc}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest truncate mt-0.5">
                                         Cari di gallery mereka ↗
                                     </p>
                                 </div>
