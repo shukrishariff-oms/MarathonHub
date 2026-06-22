@@ -50,7 +50,7 @@ export default function AdminEvents() {
     }, []);
 
     const fetchEvents = () => {
-        api.get('/events?limit=100&status=All')
+        api.get('/events?limit=200&status=All')
             .then(res => {
                 setEvents(res.data);
                 setLoading(false);
