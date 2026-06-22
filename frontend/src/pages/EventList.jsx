@@ -367,6 +367,51 @@ export default function EventList() {
                 </motion.div>
             )}
 
+            {/* Month Filter Chips — quick jump to any month */}
+            {allGroupedEvents.length > 1 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.33 }}
+                    className="flex flex-wrap items-center gap-2"
+                >
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mr-1">
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        Bulan
+                    </div>
+                    {allGroupedEvents.map(group => {
+                        const key = `${group.date.getFullYear()}-${String(group.date.getMonth() + 1).padStart(2, '0')}`;
+                        const isActive = monthFilter === key;
+                        const shortLabel = group.date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => applyMonthFilter(isActive ? '' : key)}
+                                title={isActive ? 'Tunjuk semua bulan' : `Tapis ${group.monthName} sahaja`}
+                                className={`px-4 py-2 min-h-[40px] rounded-full text-sm font-bold transition-all active:scale-95 ${
+                                    isActive
+                                        ? 'bg-primary text-ohmai-charcoal shadow-lg shadow-primary/30'
+                                        : 'bg-white/5 text-slate-300 hover:bg-primary/20 hover:text-primary border border-white/5'
+                                }`}
+                            >
+                                {shortLabel}
+                            </button>
+                        );
+                    })}
+                    {monthFilter && (
+                        <button
+                            type="button"
+                            onClick={() => applyMonthFilter('')}
+                            className="flex items-center gap-1 px-3 py-2 min-h-[36px] rounded-full text-xs font-bold text-slate-400 hover:text-white transition-colors active:scale-95"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Reset
+                        </button>
+                    )}
+                </motion.div>
+            )}
+
             {/* Active Month Filter Banner */}
             <AnimatePresence>
                 {monthFilter && !loading && (
