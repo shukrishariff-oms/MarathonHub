@@ -578,6 +578,7 @@ def read_events(
     as the events table grows.
     """
     from datetime import datetime, timedelta
+    from sqlalchemy import func
 
     query = db.query(models.Event)
 
@@ -603,7 +604,7 @@ def read_events(
 
     if month:
         # month is "YYYY-MM"
-        query = query.filter(models.Event.date.astype(str).startswith(month))
+        query = query.filter(func.strftime('%Y-%m', models.Event.date) == month)
 
     if is_highlight is not None:
         query = query.filter(models.Event.is_highlight == is_highlight)
