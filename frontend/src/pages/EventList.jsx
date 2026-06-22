@@ -109,7 +109,7 @@ export default function EventList() {
 
     const fetchEvents = () => {
         setLoading(true);
-        let url = `/events?limit=100`;
+        let url = `/events?limit=200`;
         if (status !== 'All') url += `&status=${status}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (stateFilter) url += `&state=${encodeURIComponent(stateFilter)}`;
