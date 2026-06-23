@@ -615,14 +615,15 @@ def read_events(
         today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
         tomorrow_start = today_start + timedelta(days=1)
         if status == 'Upcoming':
-            query = query.filter(models.Event.date >= today_start)
+            query = query.filter(models.Event.status != 'Cancelled', models.Event.date >= today_start)
         elif status == 'Recent':
             query = query.filter(
+                models.Event.status != 'Cancelled',
                 models.Event.date >= today_start,
                 models.Event.date < tomorrow_start,
             )
         elif status == 'Past':
-            query = query.filter(models.Event.date < today_start)
+            query = query.filter(models.Event.status != 'Cancelled', models.Event.date < today_start)
         elif status == 'Cancelled':
             query = query.filter(models.Event.status == 'Cancelled')
         # any other status string falls through with no extra filter
