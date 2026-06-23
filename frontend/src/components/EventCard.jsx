@@ -39,13 +39,20 @@ export default function EventCard({ event }) {
             className="h-full"
         >
             <Link to={`/events/${event.slug || event.id}`} className="block h-full">
-                <div className="glass-card relative h-full flex flex-col group p-1 overflow-hidden border border-white/5 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300">
+                <div className={`glass-card relative h-full flex flex-col group p-1 overflow-hidden border transition-all duration-300 ${
+                    event.status === 'Cancelled'
+                        ? 'border-red-500/20 hover:border-red-500/40 opacity-75'
+                        : 'border-white/5 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10'
+                    }`}>
                     {/* Subtle glow on hover */}
                     <div className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-primary/0 via-primary/5 to-accent/10" />
 
                     <div className="relative p-5 flex-grow">
                         <div className="flex justify-between items-center mb-4">
-                            <span className={`z-10 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${event.status === 'Upcoming'
+                            <span className={`z-10 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
+                                event.status === 'Cancelled'
+                                ? 'bg-red-500/90 text-white shadow-lg shadow-red-500/20'
+                                : event.status === 'Upcoming'
                                 ? 'bg-primary/90 text-ohmai-charcoal'
                                 : 'bg-white/10 text-slate-400 border border-white/10'
                                 }`}>
@@ -73,7 +80,9 @@ export default function EventCard({ event }) {
                         <div className="relative z-10 w-full">
 
 
-                            <h3 className="text-xl font-display font-black text-white leading-tight group-hover:text-primary transition-colors uppercase italic pr-2">
+                            <h3 className={`text-xl font-display font-black text-white leading-tight group-hover:text-primary transition-colors uppercase italic pr-2 ${
+                                event.status === 'Cancelled' ? 'line-through text-slate-500' : ''
+                            }`}>
                                 {event.name}
                             </h3>
 

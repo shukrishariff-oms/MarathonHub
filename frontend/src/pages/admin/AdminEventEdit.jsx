@@ -224,6 +224,7 @@ export default function AdminEventEdit() {
                             <option value="Upcoming" className="bg-slate-900">Upcoming</option>
                             <option value="Completed" className="bg-slate-900">Completed</option>
                             <option value="Past" className="bg-slate-900">Past</option>
+                            <option value="Cancelled" className="bg-slate-900">Cancelled</option>
                         </select>
                     </div>
                 </div>

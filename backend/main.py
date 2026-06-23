@@ -623,6 +623,8 @@ def read_events(
             )
         elif status == 'Past':
             query = query.filter(models.Event.date < today_start)
+        elif status == 'Cancelled':
+            query = query.filter(models.Event.status == 'Cancelled')
         # any other status string falls through with no extra filter
 
     # Sort: most-recent-first for Past events (so "Recent Galleries"

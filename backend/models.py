@@ -53,9 +53,15 @@ class Event(Base):
     
     @property
     def computed_status(self):
-        """Dynamically compute event status based on date"""
+        """Dynamically compute event status based on date.
+        Explicit 'Cancelled' status is always honoured — never overridden by date.
+        """
         if not self.date:
             return self.status
+        
+        # If the admin explicitly set this to Cancelled, respect it regardless of date
+        if self.status == 'Cancelled':
+            return 'Cancelled'
         
         try:
             # Get today's date at midnight for comparison
@@ -205,3 +211,112 @@ class FaceEmbedding(Base):
         # also covers bbox origin (a 1-px shift = different detection).
         Index("ix_face_photo_source", "photo_id", "source"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Strava-style submissions + ranking + promo codes (MVP viral loop)
+# ---------------------------------------------------------------------------
+# Flow: runner submits (URL or screenshot) -> admin verifies + keys in stats
+#       -> system auto-ranks + cross-refs MarathonHub event -> eligible
+#       runners get a promo code for ohmaishoot.com photo purchases.
+# ---------------------------------------------------------------------------
+
+class Runner(Base):
+    """A person who has submitted at least one activity.
+
+    We don't require login for MVP — runner is keyed by email + display name.
+    Email is used to merge duplicate submissions (same runner submits twice)
+    and to deliver the promo code.
+    """
+    __tablename__ = "runners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    email = Column(String, index=True, nullable=False)
+    instagram_handle = Column(String, nullable=True)
+    strava_handle = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    submissions = relationship("Submission", back_populates="runner", cascade="all, delete-orphan")
+    promo_codes = relationship("PromoCode", back_populates="runner", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_runners_email_name", "email", "name"),
+    )
+
+
+class Submission(Base):
+    """One runner activity awaiting (or after) admin verification.
+
+    Two evidence types:
+      - 'url'      -> strava_url holds the activity link
+      - 'screenshot' -> screenshot_path holds server-relative upload path
+
+    Stats (distance_km, time_seconds, elevation_gain_m, activity_date) are
+    keyed in by the admin after viewing the evidence. The runner's pace is
+    derived at approve time.
+
+    event_id is filled by either:
+      - admin manually mapping it to a MarathonHub event
+      - cross-ref logic matching activity_date ± 1 day against events.date
+        with fuzzy location match (future enhancement)
+    """
+    __tablename__ = "submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    runner_id = Column(Integer, ForeignKey("runners.id"), index=True, nullable=False)
+
+    # Evidence
+    submission_type = Column(String, nullable=False)  # 'url' | 'screenshot'
+    strava_url = Column(String, nullable=True)
+    screenshot_path = Column(String, nullable=True)  # server-relative /api/uploads/xxx.png
+
+    # Admin-entered activity stats (None until verified)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True, index=True)
+    activity_date = Column(DateTime, nullable=True, index=True)
+    activity_location = Column(String, nullable=True)  # free text from admin
+    distance_km = Column(Float, nullable=True)
+    time_seconds = Column(Integer, nullable=True)
+    elevation_gain_m = Column(Integer, nullable=True)
+
+    # Lifecycle
+    status = Column(String, default="pending", index=True)  # pending|approved|rejected
+    admin_notes = Column(Text, nullable=True)
+    submitted_at = Column(DateTime, default=datetime.utcnow, index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("admins.id"), nullable=True)
+
+    runner = relationship("Runner", back_populates="submissions")
+    event = relationship("Event")
+    reviewer = relationship("Admin", foreign_keys=[reviewed_by])
+    promo_code = relationship("PromoCode", uselist=False, back_populates="submission")
+
+
+class PromoCode(Base):
+    """Auto-issued code for a verified runner.
+
+    Format: RUN-<event_short>-<rank:02d>-<rand4>
+    Example: RUN-MY01-03-X7K2  (3rd place at event id 1)
+
+    Discount + expiry + max_uses are configurable from SiteSetting (admin UI
+    can edit later). For MVP we read defaults from env or hardcode reasonable
+    values: 15% off, 30 days expiry, single use.
+    """
+    __tablename__ = "promo_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    runner_id = Column(Integer, ForeignKey("runners.id"), index=True, nullable=False)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), index=True, nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id"), index=True, nullable=True)
+
+    discount_pct = Column(Integer, default=15)  # percent off
+    expires_at = Column(DateTime, nullable=False)
+    max_uses = Column(Integer, default=1)
+    used_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    runner = relationship("Runner", back_populates="promo_codes")
+    submission = relationship("Submission", back_populates="promo_code")
+    event = relationship("Event")

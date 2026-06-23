@@ -239,7 +239,9 @@ export default function EventList() {
                         >
                             <option value="All">All Events</option>
                             <option value="Upcoming">Upcoming</option>
+                            <option value="Recent">Recent</option>
                             <option value="Past">Past Results</option>
+                            <option value="Cancelled">Cancelled</option>
                         </select>
                     </div>
                 </div>
