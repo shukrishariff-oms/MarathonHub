@@ -82,8 +82,6 @@ export default function Home() {
         const thisWeek = [];
         const later = [];
         for (const ev of upcomingEvents) {
-            // Skip cancelled events — they shouldn't appear in This Week or Upcoming
-            if (ev.status === 'Cancelled') continue;
             // Use UTC interpretation (append 'Z') to match EventCard
             const d = ev.date ? new Date(ev.date.endsWith('Z') ? ev.date : ev.date + 'Z') : null;
             if (d && d <= cutoff) thisWeek.push(ev);
