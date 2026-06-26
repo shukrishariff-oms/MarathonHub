@@ -408,3 +408,128 @@ class FaceSearchResponse(BaseModel):
     # this event, so the runner knows whether "0 results" means "nothing
     # matched" or "we never indexed this gallery".
     indexed_sources: List[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Submission / ranking / promo schemas (MVP viral loop)
+# ---------------------------------------------------------------------------
+
+class RunnerCreate(BaseModel):
+    name: str
+    email: str
+    instagram_handle: Optional[str] = None
+    strava_handle: Optional[str] = None
+
+
+class RunnerOut(BaseModel):
+    id: int
+    name: str
+    email: str
+    instagram_handle: Optional[str] = None
+    strava_handle: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SubmissionCreate(BaseModel):
+    """Payload from the public submit page.
+
+    Exactly one of strava_url or screenshot_path must be provided — we
+    enforce this in the route, not the schema, to give a friendly 400
+    with both options called out.
+    """
+    name: str
+    email: str
+    strava_url: Optional[str] = None
+    screenshot_path: Optional[str] = None
+    instagram_handle: Optional[str] = None
+    strava_handle: Optional[str] = None
+    # Optional pre-fill — runner can hint the event they participated in;
+    # admin still verifies + maps it.
+    suggested_event_id: Optional[int] = None
+
+
+class SubmissionOut(BaseModel):
+    id: int
+    runner_id: int
+    submission_type: str
+    strava_url: Optional[str] = None
+    screenshot_path: Optional[str] = None
+    event_id: Optional[int] = None
+    activity_date: Optional[datetime] = None
+    activity_location: Optional[str] = None
+    distance_km: Optional[float] = None
+    time_seconds: Optional[int] = None
+    elevation_gain_m: Optional[int] = None
+    pace_min_per_km: Optional[float] = None  # computed
+    category: Optional[str] = None  # computed
+    status: str
+    admin_notes: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    runner: Optional[RunnerOut] = None
+    event_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SubmissionApprove(BaseModel):
+    """Admin keys in the verified stats here when approving."""
+    event_id: Optional[int] = None  # mapped MarathonHub event
+    activity_date: datetime
+    activity_location: Optional[str] = None
+    distance_km: float
+    time_seconds: int
+    elevation_gain_m: Optional[int] = 0
+    admin_notes: Optional[str] = None
+    issue_promo: bool = True  # default ON — flip off for non-eligible
+
+
+class SubmissionReject(BaseModel):
+    reason: Optional[str] = None
+
+
+class PromoCodeOut(BaseModel):
+    id: int
+    code: str
+    runner_id: int
+    runner_name: Optional[str] = None
+    submission_id: int
+    event_id: Optional[int] = None
+    event_name: Optional[str] = None
+    discount_pct: int
+    expires_at: datetime
+    max_uses: int
+    used_count: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    submission_id: int
+    runner_id: int
+    runner_name: str
+    instagram_handle: Optional[str] = None
+    event_id: Optional[int] = None
+    event_name: Optional[str] = None
+    category: str
+    distance_km: float
+    time_seconds: int
+    pace_min_per_km: float
+    elevation_gain_m: int = 0
+    promo_code: Optional[str] = None
+
+
+class LeaderboardResponse(BaseModel):
+    category: str  # '5K' | '10K' | 'HM' | 'FM' | 'ELEVATION' | 'OVERALL'
+    event_id: Optional[int] = None
+    event_name: Optional[str] = None
+    entries: List[LeaderboardEntry]
+    total_entries: int

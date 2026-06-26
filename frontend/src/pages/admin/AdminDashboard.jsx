@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, Users, Briefcase, LogOut, ExternalLink, BarChart3, Settings, ArrowRight } from 'lucide-react';
+import { Calendar, Users, Briefcase, LogOut, ExternalLink, BarChart3, Settings, ArrowRight, FileText, Activity, Ticket } from 'lucide-react';
 import api from '../../api';
 
 // Simple checkauth or just rely on API error to redirect
@@ -84,6 +84,26 @@ export default function AdminDashboard() {
                     </div>
                 </Link>
 
+                <Link to="/admin/blog" className="group bg-white/5 border border-white/10 overflow-hidden shadow-lg rounded-2xl hover:bg-white/10 hover:border-amber-400/50 transition-all duration-300">
+                    <div className="p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0 bg-amber-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform">
+                                <FileText className="h-6 w-6 text-amber-400" />
+                            </div>
+                            <div className="flex-1">
+                                <dl>
+                                    <dt className="text-xs font-bold text-slate-400 uppercase tracking-wider">Content</dt>
+                                    <dd className="mt-1 text-2xl font-black text-white italic">BLOG</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-black/20 px-6 py-3 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-xs font-medium text-slate-400 group-hover:text-amber-400 transition-colors">Manage Posts</span>
+                        <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                    </div>
+                </Link>
+
                 <Link to="/admin/settings" className="group bg-white/5 border border-white/10 overflow-hidden shadow-lg rounded-2xl hover:bg-white/10 hover:border-emerald-400/50 transition-all duration-300">
                     <div className="p-6">
                         <div className="flex items-center gap-4">
@@ -101,6 +121,46 @@ export default function AdminDashboard() {
                     <div className="bg-black/20 px-6 py-3 border-t border-white/5 flex justify-between items-center">
                         <span className="text-xs font-medium text-slate-400 group-hover:text-emerald-400 transition-colors">Configure</span>
                         <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                </Link>
+
+                <Link to="/admin/submissions" className="group bg-white/5 border border-white/10 overflow-hidden shadow-lg rounded-2xl hover:bg-white/10 hover:border-cyan-400/50 transition-all duration-300">
+                    <div className="p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0 bg-cyan-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform">
+                                <Activity className="h-6 w-6 text-cyan-400" />
+                            </div>
+                            <div className="flex-1">
+                                <dl>
+                                    <dt className="text-xs font-bold text-slate-400 uppercase tracking-wider">Viral Loop</dt>
+                                    <dd className="mt-1 text-2xl font-black text-white italic">SUBMISSIONS</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-black/20 px-6 py-3 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-xs font-medium text-slate-400 group-hover:text-cyan-400 transition-colors">Review &amp; rank</span>
+                        <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                    </div>
+                </Link>
+
+                <Link to="/admin/promo-codes" className="group bg-white/5 border border-white/10 overflow-hidden shadow-lg rounded-2xl hover:bg-white/10 hover:border-rose-400/50 transition-all duration-300">
+                    <div className="p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0 bg-rose-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform">
+                                <Ticket className="h-6 w-6 text-rose-400" />
+                            </div>
+                            <div className="flex-1">
+                                <dl>
+                                    <dt className="text-xs font-bold text-slate-400 uppercase tracking-wider">Photo Sales</dt>
+                                    <dd className="mt-1 text-2xl font-black text-white italic">PROMOS</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-black/20 px-6 py-3 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-xs font-medium text-slate-400 group-hover:text-rose-400 transition-colors">Manage codes</span>
+                        <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 transition-colors" />
                     </div>
                 </Link>
             </div>

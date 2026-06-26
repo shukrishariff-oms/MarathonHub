@@ -14,6 +14,8 @@ import PhotographerDetail from './pages/PhotographerDetail';
 import BlogList from './pages/BlogList';
 import BlogDetail from './pages/BlogDetail';
 import OrganizerLanding from './pages/OrganizerLanding';
+import Submit from './pages/Submit';
+import Leaderboard from './pages/Leaderboard';
 
 // Admin pages — code-split into a separate chunk. Public visitors
 // (the vast majority) never download admin code, cutting initial JS
@@ -28,6 +30,10 @@ const AdminAssignments = lazy(() => import('./pages/admin/AdminAssignments'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminEventAnalytics = lazy(() => import('./pages/admin/AdminEventAnalytics'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminBlog = lazy(() => import('./pages/admin/AdminBlog'));
+const AdminBlogEdit = lazy(() => import('./pages/admin/AdminBlogEdit'));
+const AdminSubmissions = lazy(() => import('./pages/admin/AdminSubmissions'));
+const AdminPromoCodes = lazy(() => import('./pages/admin/AdminPromoCodes'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -73,6 +79,8 @@ function App() {
                     <Route path="blog" element={<BlogList />} />
                     <Route path="blog/:slug" element={<BlogDetail />} />
                     <Route path="for-organizers" element={<OrganizerLanding />} />
+                    <Route path="submit" element={<Submit />} />
+                    <Route path="leaderboard" element={<Leaderboard />} />
                 </Route>
 
                 {/* Admin Routes */}
@@ -88,6 +96,13 @@ function App() {
                 <Route path="/admin/photographers" element={<ProtectedRoute><AdminLayout><AdminPhotographers /></AdminLayout></ProtectedRoute>} />
                 <Route path="/admin/photographers/new" element={<ProtectedRoute><AdminLayout><AdminPhotographerEdit /></AdminLayout></ProtectedRoute>} />
                 <Route path="/admin/photographers/edit/:id" element={<ProtectedRoute><AdminLayout><AdminPhotographerEdit /></AdminLayout></ProtectedRoute>} />
+
+                <Route path="/admin/blog" element={<ProtectedRoute><AdminLayout><AdminBlog /></AdminLayout></ProtectedRoute>} />
+                <Route path="/admin/blog/new" element={<ProtectedRoute><AdminLayout><AdminBlogEdit /></AdminLayout></ProtectedRoute>} />
+                <Route path="/admin/blog/edit/:slug" element={<ProtectedRoute><AdminLayout><AdminBlogEdit /></AdminLayout></ProtectedRoute>} />
+
+                <Route path="/admin/submissions" element={<ProtectedRoute><AdminLayout><AdminSubmissions /></AdminLayout></ProtectedRoute>} />
+                <Route path="/admin/promo-codes" element={<ProtectedRoute><AdminLayout><AdminPromoCodes /></AdminLayout></ProtectedRoute>} />
 
                 <Route path="/admin/analytics" element={<ProtectedRoute><AdminLayout><AdminAnalytics /></AdminLayout></ProtectedRoute>} />
                 <Route path="/admin/analytics/event/:eventId" element={<ProtectedRoute><AdminLayout><AdminEventAnalytics /></AdminLayout></ProtectedRoute>} />
